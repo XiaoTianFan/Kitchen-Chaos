@@ -1,0 +1,47 @@
+{
+  "meta": { "version": 1, "debug": false, "palette": "candyPastels" },
+  "meters": {
+    "heat": { "incPerSec": 1.0, "decPerSec": 0.3 },
+    "taskLoad": { "incPerAction": 1.0, "decPerSec": 0.2 }
+  },
+  "accidents": { "cycle": ["clatter", "thing_breaking", "thump"], "delayMs": 200 },
+  "fsm": {
+    "initialState": "Preparing",
+    "states": [
+      {
+        "name": "Preparing",
+        "minSec": 30,
+        "maxSec": 60,
+        "enterActions": [{ "type": "uiPrompt", "text": "Maybe light something." }]
+      },
+      {
+        "name": "Cooking",
+        "minSec": 30,
+        "maxSec": 60,
+        "enterActions": [{ "type": "uiPrompt", "text": "Multitasking is easy. Add more. More." }]
+      },
+      {
+        "name": "Accident Breakout",
+        "minSec": 30,
+        "maxSec": 60,
+        "enterActions": [{ "type": "uiPrompt", "text": "It’s fine. Totally fine." }]
+      },
+      {
+        "name": "Chaos",
+        "minSec": 30,
+        "maxSec": 60,
+        "enterActions": [{ "type": "uiPrompt", "text": "Nailed it." }]
+      }
+    ]
+  },
+  "sounds": [
+    { "id": "stove", "file": "stove.wav", "type": "sustained_toggle", "visual": "heatRing", "bus": "beds" },
+    { "id": "water_pour", "file": "water%20pour.wav", "type": "user_transient_drag", "visual": "ribbonWave", "bus": "fx" },
+    { "id": "fire_alarm", "file": "fire%20alarm.wav", "type": "auto_sustained_move", "visual": "flashingCircularSpectrogram", "bus": "accidents" },
+    { "id": "clatter", "file": "clatter.wav", "type": "auto_transient", "visual": "accidentBursts", "bus": "accidents" },
+    { "id": "thing_breaking", "file": "thing%20breaking.wav", "type": "auto_transient", "visual": "accidentBursts", "bus": "accidents" },
+    { "id": "thump", "file": "thump.wav", "type": "auto_transient", "visual": "accidentBursts", "bus": "accidents" }
+  ]
+}
+
+

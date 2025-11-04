@@ -1,0 +1,207 @@
+PRD: Kitchen Chaos A/V Story (Web)
+
+1) Summary and vision
+- Purpose: An interactive, comedic audio-visual piece where ordinary cooking escalates into chaos. Users trigger most sounds via pointer actions; accidents trigger themselves as the story advances. Visuals are playful, candy-pastel abstractions. The story ends at peak chaos with a hard audio cut, a single white blink, then fade to black.
+- Platforms: Desktop and mobile browsers, both orientations.
+- Stack: Pure frontend (HTML/CSS/JS), Three.js for visuals, Web Audio API for sound. Static hosting.
+- Inputs: Pointer only (click/drag/hold).
+- Performance: Full devicePixelRatio. Optimize later; keep architecture perf-friendly.
+
+2) Success criteria
+- Users can naturally discover actions via brief, comedic prompts.
+- The four narrative states occur in order with deterministic transitions; each lasts up to 60 s.
+- Accidents occur during normal interactions (not separate “mini-game” actions).
+- Sound and visual pairings feel coherent and comedic; panning matches on-screen x-position.
+- Experience ends abruptly (audio hard cut) with a single white blink (~100 ms) then fade to black (~1.5 s).
+
+3) Assets (final samples; in-app gain/speed/fades allowed)
+- bag rustling.wav
+- boiling_water.wav
+- chopping.wav
+- clatter.wav
+- cooking spray.wav
+- cutting things.wav
+- fire alarm.wav
+- fridge.wav
+- glass clink.wav
+- glass stirring.wav
+- hissing_pan.wav
+- juicing.wav
+- knife sharpen.wav
+- lighter.wav
+- microwave.wav
+- stove.wav
+- tap.wav
+- thing breaking.wav
+- thump.wav
+- water pour.wav
+
+4) Sound classification and trigger rules
+- Auto-triggered transient (accidents; random spawn position)
+  - clatter.wav
+  - thing breaking.wav
+  - thump.wav
+- Auto-triggered sustained (accident; moves around)
+  - fire alarm.wav
+- User-triggered transient (spawn at pointer; short visuals)
+  - chopping.wav
+  - cutting things.wav
+  - lighter.wav
+  - bag rustling.wav
+  - glass clink.wav
+  - fridge.wav (one-shot)
+  - microwave.wav (one-shot)
+  - water pour.wav (short sustain visual following drag path; audio plays once)
+- User-triggered sustained
+  - stove.wav (toggle on/off)
+  - hissing_pan.wav (after stove on and first cooking action)
+  - boiling_water.wav (after water pour and stove on)
+  - cooking spray.wav (hold)
+  - knife sharpen.wav (hold/drag path)
+  - glass stirring.wav (hold/drag circle)
+  - juicing.wav (hold)
+  - tap.wav (toggle on/off)
+
+5) Narrative structure and FSM
+- States: Preparing → Cooking → Accident Breakout → Chaos. Deterministic transitions; each state capped at 60 s.
+- Meters
+  - Heat: increases per second while stove is on (+1/s). Microwave adds a fixed Heat bump when started (+5). Decays 0.3/s when stove off.
+  - TaskLoad: +1 per user action (any user-triggered sound). Decays 0.2/s.
+- Thresholds (seconds of stove-on heat unless noted)
+  - T1 = 10 s, T2 = 25 s, T3 = 40 s, T4 = 55 s
+  - L1 = 6 actions, L2 = 12 actions
+  - A2 = 6 accidents (count in Accident Breakout)
+- Transitions and deterministic injections
+  - Preparing
+    - Goal prompt: “Maybe light something…”
+    - Transition to Cooking immediately when stove toggled on or microwave started. If not triggered by t=60 s, force transition (stove toggles on at last interaction x).
+  - Cooking
+    - At Heat ≥ T1 and TaskLoad ≥ L1: schedule clatter (auto transient).
+    - At Heat ≥ T2 and TaskLoad ≥ L2: schedule thing breaking (auto transient).
+    - Transition to Accident Breakout at Heat ≥ T3 OR at t=60 s while stove is on; otherwise at t=60 s force on.
+  - Accident Breakout
+    - Accidents during normal interactions: on every user action, schedule one auto accident after 200 ms using a deterministic cycle: clatter → thing breaking → thump → repeat. Random screen position each time.
+    - Transition to Chaos at Heat ≥ T4 OR accidentsCount ≥ A2 OR t=60 s.
+  - Chaos
+    - Start fire alarm (sustained, moving). Every user action schedules the next accident in the same 200 ms cycle.
+    - End at t=60 s: hard audio cut; canvas white blink (~100 ms) then fade to black (~1.5 s). Visuals destroyed afterward.
+
+6) Interaction grammar
+- Click: toggle sustained (stove, tap), or trigger one-shot (fridge, microwave, bag, clink, lighter).
+- Click and hold: cooking spray, knife sharpen, juicing, stirring (stronger effect with movement).
+- Drag:
+  - water pour: emits a downward ribbon along drag path; one-shot audio.
+  - stirring: circular motion boosts intensity; one sustained instance while held.
+  - knife sharpen: line-follow sparks along drag vector.
+
+7) Visual language (candy pastels; examples and parameters)
+- Shared visual API (factory output):
+  - create(params) → { id, setParams(newParams), update(audioData, dt), setPosition(x,y), getPosition(), destroy() }
+  - Common params: colorA/B, size, lifespanMs, spawnJitter, orbitRadius, speed, angle, bandLowHz, bandHighHz, responseGain, opacity, blendMode, strokeWidth.
+- Mappings per sound
+  - water pour: ribbonWave; blue/aqua ribbon traveling down; amplitude from 200–800 Hz band; follows drag path; lifespan short (1–2 s).
+  - fire alarm: flashingCircularSpectrogram; red pastel; flash 4 Hz; orbits canvas center with small jitter; radius modulated by overall RMS; moves during Chaos.
+  - chopping/cutting: pulseStrokes; white pulses at pointer, stroke width from onset strength; lifespan 300–500 ms.
+  - bag rustling: polygonWrinkle; quick crumple near cursor; 400–600 ms.
+  - glass clink: starburstShards; crystalline burst; 500–800 ms.
+  - lighter: flare + heat shimmer; 300–500 ms.
+  - stove: heatRing + shimmer; ring intensity from RMS; static at spawn x.
+  - hissing_pan: steamParticles; emission rate from high bands; stationary.
+  - boiling_water: bubbleField; bubble size from 150–500 Hz; stationary.
+  - tap: rippleEmitter; ripples expand; low-mid energy drives amplitude.
+  - glass stirring: vortexSpiral; swirl rate from pointer angular velocity; sustained while held.
+  - cooking spray: sprayCone; particle density from RMS; sustained while held.
+  - knife sharpen: sparkLine; spark rate from mid-high band.
+  - juicing: citrusSplash; droplets outward; sustained while held.
+  - microwave: microwaveGrid; pulsing squares; one-shot visual matching sample length.
+  - clatter/thing breaking/thump: accidents; screen shake + bursts; random positions; 500–1200 ms visuals.
+
+8) Audio model
+- Defaults: gain 0 dB, playbackRate 1.0, fadeIn 15 ms, fadeOut 30 ms (short fades to avoid clicks; does not affect one-shot length noticeably).
+- Web Audio routing per entity: BufferSource → GainNode → StereoPannerNode → BusGain → MasterCompressor → MasterLimiter → destination.
+- Panning: pan = map(xNormalized ∈ [0..1]) to [-1..1]. Update if the visual moves (e.g., alarm orbit).
+- Build-ups: sustained loops (boiling/hissing) can ramp gain over 1–3 s on start.
+- Concurrency: no hard cap; rely on compressor/limiter to prevent clipping.
+- Audio unlock: create/resume AudioContext on first user interaction; preload decode all buffers.
+
+9) Deterministic accident scheduler
+- On user actions in Accident Breakout and Chaos, push “due accidents”: [clatter, breaking, thump, clatter, ...] with fixed 200 ms delay per action.
+- In Cooking, accidents injected only by thresholds T1/L1 and T2/L2.
+- Random positions: use seeded RNG initialized from session start timestamp for repeatable debugging when desired.
+
+10) Spawn rules and motion
+- User-transient: spawn at cursor/touch with ±2% screen jitter.
+- User-sustained: spawn at cursor; stay put (background bed) except stirring/spray/knife which follow pointer while held.
+- Auto-transient accidents: spawn at random x,y; slight screen shake.
+- Fire alarm (sustained accident): continuous movement along an orbit with small noise; panner follows x.
+
+11) UI prompts (comedic, minimal)
+- Preparing: “Maybe light something.”
+- Cooking: “Multitasking is easy. Add more. More.”
+- Accident Breakout: “It’s fine. Totally fine.”
+- Chaos: “Nailed it.”
+- Display as small corner captions; fade in/out around state changes.
+
+12) Error handling and edge cases
+- If AudioContext fails to start, display a tap-to-start overlay.
+- If a required dependency fails (e.g., WebGL), fallback message: “Needs WebGL/Audio enabled.”
+- If a buffer fails to decode, log an error and disable that sound’s UI affordance.
+
+13) Logging (console-only)
+- Toggle: debug=true in a top-level config flag or URL param (?debug=1).
+- Event types and payloads
+  - app:init, app:assets_loaded
+  - audio:context_unlocked
+  - state:enter {state, t}
+  - state:exit {state, t, reason}
+  - meter:update {t, heat, taskLoad}
+  - user:action {type, soundId, x, y}
+  - auto:accident_scheduled {type, dueAt}
+  - auto:accident_spawn {type, x, y}
+  - sound:play {id, loop, gain, rate}, sound:stop {id}
+  - error:{code,msg}
+- Include a monotonically increasing event id and session id; include current state in each log.
+
+14) Acceptance criteria
+- Audio panning matches visual x within one animation frame latency.
+- All states occur in correct order with specified guards; each ends by 60 s.
+- Starting Chaos: fire alarm is audible and moving; every user action during Chaos spawns an accident 200 ms later.
+- End behavior: audio cuts to silence instantly; blink then fade timings within ±100 ms.
+- Works on recent Chrome/Safari/Firefox mobile and desktop; first interaction unlocks audio.
+
+15) Data-driven configuration
+
+15.1 JSON schema (authoring)
+- meta: version, debug, palette.
+- meters: names, rates.
+- sounds: array of sound configs; each references a visual factory and rules.
+- fsm: initialState, states with durations, enter/exit actions, and guards.
+- accidents: cycle and delayMs.
+
+Example minimal schema (descriptive, not strict JSON Schema):
+{
+  "meta": { "version": 1, "debug": true, "palette": "candyPastels" },
+  "meters": {
+    "heat": { "incPerSec": 1.0, "decPerSec": 0.3 },
+    "taskLoad": { "incPerAction": 1.0, "decPerSec": 0.2 }
+  },
+  "accidents": { "cycle": ["clatter","thing_breaking","thump"], "delayMs": 200 },
+  "fsm": {
+    "initialState": "Preparing",
+    "states": [
+      {
+        "name": "Preparing",
+        "minSec": 30, "maxSec": 60,
+        "enterActions": [{ "type": "uiPrompt", "text": "Maybe light something." }],
+        "guards": [
+          { "when": "event", "event": "sound:play", "soundId": "stove", "to": "Cooking" },
+          { "when": "event", "event": "sound:play", "soundId": "microwave", "to": "Cooking" },
+          { "when": "time>=maxSec", "to": "Cooking", "action": { "type": "forceStoveOnAtLastX": true } }
+        ]
+      },
+      {
+        "name": "Cooking",
+        "minSec": 30, "maxSec": 60,
+        "enterActions": [{ "type": "uiPrompt", "text": "Multitasking is easy. Add more. More." }],
+        "guards": [
+          { "when": "metric", "metric": "heat", "op": ">=", "value": 10, "and": [{"metric":"taskLoad","op":">=","value":6}], "action": {"type":"scheduleAccident","accident":"
