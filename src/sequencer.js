@@ -1,0 +1,115 @@
+// Sequencer: linear, click-to-advance per-state cue runner
+import { getBuffer } from './audio/buffers.js';
+import { log } from './logging.js';
+
+export class Sequencer {
+  constructor({ getConfig, sounds, fsm, setPrompt, renderer, createVisual, onCue }) {
+    this.getConfig = getConfig; // () => cfg
+    this.sounds = sounds;       // SoundManager
+    this.fsm = fsm;             // FSM instance
+    this.setPrompt = setPrompt; // (text) => void
+    this.renderer = renderer;    // Renderer instance
+    this.createVisual = createVisual; // (soundId, x, y) => void helper
+    this.onCue = onCue;               // (cue, ctx) => void
+
+    this.sequence = [];
+    this.index = 0;
+    this.stateName = '';
+  }
+
+  resetForState(stateName) {
+    this.stateName = stateName;
+    this.index = 0;
+    const cfg = this.getConfig?.() || {};
+    const st = (cfg?.fsm?.states || []).find(s => s?.name === stateName);
+    this.sequence = Array.isArray(st?.sequence) ? st.sequence.slice(0) : [];
+  }
+
+  // inputType: 'click' | 'hold' | 'drag'
+  // actionCtx: original input event (may include x,y,nx,ny,isStart,phase)
+  advance(inputType = 'click', actionCtx = null) {
+    if (!this.sequence || this.sequence.length === 0) return; // nothing to do
+    if (this.index >= this.sequence.length) return; // reached end, no-op
+
+    // Find the next cue matching inputType and simple conditions
+    let pickedIdx = -1;
+    for (let i = this.index; i < this.sequence.length; i++) {
+      const c = this.sequence[i];
+      const req = c?.requires; // 'click' | 'hold' | 'drag' | undefined
+      const matchesInput = !req || req === inputType;
+      if (!matchesInput) continue;
+      if (c?.if && typeof c.if === 'object') {
+        let ok = true;
+        for (const k of Object.keys(c.if)) {
+          if ((this.fsm?.[k]) !== c.if[k]) { ok = false; break; }
+        }
+        if (!ok) continue;
+      }
+      pickedIdx = i;
+      break;
+    }
+    if (pickedIdx === -1) return; // nothing suitable
+    const cue = this.sequence[pickedIdx];
+    try {
+      // Apply audio action
+      const action = cue?.action;
+      const sound = cue?.sound;
+      // Derive position: prefer actionCtx normalized x,y if present
+      const nx = (actionCtx && typeof actionCtx.x === 'number') ? actionCtx.x : (cue?.x ?? 0.5);
+      const ny = (actionCtx && typeof actionCtx.y === 'number') ? actionCtx.y : (cue?.y ?? 0.5);
+      if (action && sound) {
+        // Ensure buffer is ready; if not, do not advance index yet
+        const haveBuffer = !!getBuffer(sound);
+        if (!haveBuffer) {
+          return; // wait for next input once buffers are ready
+        }
+        if (action === 'playOneShot') {
+          this.sounds?.playOneShot(sound, { x: nx });
+          if (this.createVisual) this.createVisual(sound, nx, ny);
+          log('sound:play', { id: sound, action, state: this.stateName, index: pickedIdx, x: nx, y: ny });
+        } else if (action === 'startSustained') {
+          this.sounds?.startSustained(sound, { x: nx });
+          if (this.createVisual) this.createVisual(sound, nx, ny);
+          log('sound:start', { id: sound, action, state: this.stateName, index: pickedIdx, x: nx, y: ny });
+        } else if (action === 'stopSustained') {
+          this.sounds?.stopSustained(sound);
+          log('sound:stop', { id: sound, action, state: this.stateName, index: pickedIdx });
+        } else if (action === 'toggleSustained') {
+          this.sounds?.toggleSustained(sound, { x: nx });
+          if (this.createVisual) this.createVisual(sound, nx, ny);
+          log('sound:toggle', { id: sound, action, state: this.stateName, index: pickedIdx, x: nx, y: ny });
+        }
+      }
+
+      // State transition cue
+      if (action === 'gotoState' && cue?.to) {
+        try {
+          this.fsm?.goTo?.(cue.to, 'sequencer');
+          log('state:goto', { to: cue.to, from: this.stateName, index: pickedIdx });
+        } catch (_) {}
+      }
+
+      // Optional FSM side effects
+      if (cue?.fsm) {
+        if (cue.fsm.setStove === true) this.fsm?.setStove(true);
+        if (cue.fsm.bumpMicrowave === true) this.fsm?.bumpMicrowave();
+      }
+
+      // Narrative text
+      if (typeof cue?.text === 'string' && cue.text.length > 0) {
+        this.setPrompt?.(cue.text);
+      }
+
+      // Notify
+      if (this.onCue) {
+        try { this.onCue(cue, { inputType, actionCtx }); } catch (_) {}
+      }
+      // Advance index only after successful execution
+      this.index = pickedIdx + 1;
+    } catch (_) {
+      // swallow to avoid breaking linear flow on a single cue
+    }
+  }
+}
+
+

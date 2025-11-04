@@ -22,6 +22,10 @@ export class FSM {
     this.onExit = () => {};
   }
 
+  goTo(stateName, reason = 'manual') {
+    this._enter(stateName, reason);
+  }
+
   setHooks({ onEnter, onExit } = {}) {
     if (typeof onEnter === 'function') this.onEnter = onEnter;
     if (typeof onExit === 'function') this.onExit = onExit;
@@ -50,24 +54,6 @@ export class FSM {
     // time
     this.t += dtSec;
     this.tState += dtSec;
-
-    // meters
-    const heatInc = this.config?.meters?.heat?.incPerSec ?? 1.0;
-    const heatDec = this.config?.meters?.heat?.decPerSec ?? 0.3;
-    const taskDec = this.config?.meters?.taskLoad?.decPerSec ?? 0.2;
-
-    if (this.stoveOn) {
-      this.heat += heatInc * dtSec;
-    } else {
-      this.heat -= heatDec * dtSec;
-    }
-    this.heat = Math.max(0, this.heat);
-
-    this.taskLoad -= taskDec * dtSec;
-    this.taskLoad = Math.max(0, this.taskLoad);
-
-    // transitions
-    this._checkTransitions();
   }
 
   _enter(next, reason) {
@@ -80,36 +66,7 @@ export class FSM {
     this.onEnter?.({ state: next, t });
   }
 
-  _checkTransitions() {
-    const s = this.state;
-    if (s === 'Preparing') {
-      if (this.stoveOn) {
-        this._enter('Cooking', 'stove_on');
-        return;
-      }
-      if (this.tState >= 60) {
-        // Force transition; stove toggles on at last interaction x (handled elsewhere)
-        this.stoveOn = true;
-        this._enter('Cooking', 'timeout_force');
-        return;
-      }
-    } else if (s === 'Cooking') {
-      if (this.heat >= this.T3 || (this.tState >= 60 && this.stoveOn)) {
-        this._enter('Accident Breakout', this.heat >= this.T3 ? 'heat_T3' : 'timeout');
-        return;
-      }
-      if (this.tState >= 60 && !this.stoveOn) {
-        this.stoveOn = true; // force on
-      }
-    } else if (s === 'Accident Breakout') {
-      if (this.heat >= this.T4 || this.accidentsCount >= this.A2 || this.tState >= 60) {
-        this._enter('Chaos', this.heat >= this.T4 ? 'heat_T4' : (this.accidentsCount >= this.A2 ? 'accidents_A2' : 'timeout'));
-        return;
-      }
-    } else if (s === 'Chaos') {
-      // End behavior handled outside (audio cut and fade) at 60 s
-    }
-  }
+  _checkTransitions() {}
 }
 
 

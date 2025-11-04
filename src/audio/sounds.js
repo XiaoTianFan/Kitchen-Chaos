@@ -14,9 +14,15 @@ function mapXToPan(x) {
 }
 
 export function playOneShot(id, { x = 0.5, bus = 'fx', gain = 1.0, rate = 1.0 } = {}) {
-  if (!engine) throw new Error('Sounds not initialized. Call initSounds().');
+  if (!engine) {
+    console.warn(`[sounds] Engine not initialized, cannot play '${id}'`);
+    return null;
+  }
   const buffer = getBuffer(id);
-  if (!buffer) throw new Error(`Buffer not loaded for sound '${id}'`);
+  if (!buffer) {
+    console.warn(`[sounds] Buffer not loaded for sound '${id}' - skipping playback`);
+    return null;
+  }
   const { context } = engine;
   const { source, gain: g, panner } = engine.createEntityNodes({ busName: bus, pan: mapXToPan(x), initialGain: 0.0001 });
   source.buffer = buffer;
@@ -47,9 +53,15 @@ export function playOneShot(id, { x = 0.5, bus = 'fx', gain = 1.0, rate = 1.0 } 
 const sustained = new Map(); // id -> handle
 
 export function playSustained(id, { x = 0.5, bus = 'beds', gain = 1.0, rate = 1.0 } = {}) {
-  if (!engine) throw new Error('Sounds not initialized. Call initSounds().');
+  if (!engine) {
+    console.warn(`[sounds] Engine not initialized, cannot play '${id}'`);
+    return null;
+  }
   const buffer = getBuffer(id);
-  if (!buffer) throw new Error(`Buffer not loaded for sound '${id}'`);
+  if (!buffer) {
+    console.warn(`[sounds] Buffer not loaded for sound '${id}' - skipping playback`);
+    return null;
+  }
   const { context } = engine;
   const { source, gain: g, panner } = engine.createEntityNodes({ busName: bus, pan: mapXToPan(x), initialGain: 0.0001 });
   source.buffer = buffer;

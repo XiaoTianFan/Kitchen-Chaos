@@ -21,6 +21,7 @@ export class SoundManager {
     if (this.sustainedState.has(id)) return this.sustainedState.get(id);
     const meta = this.getSoundMeta(id);
     const h = playSustained(id, { x, bus: meta.bus || 'beds', gain: 0.9 });
+    if (!h) return null; // Buffer not loaded or engine not initialized
     this.sustainedState.set(id, h);
     return h;
   }

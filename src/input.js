@@ -13,6 +13,7 @@ export class InputController {
     this.startTime = 0;
     this.holdTimer = 0;
     this.holding = false;
+    this.dragging = false;
 
     this._onDown = this._onDown.bind(this);
     this._onMove = this._onMove.bind(this);
@@ -53,6 +54,7 @@ export class InputController {
     this.startY = this.lastY = p.y;
     this.startTime = performance.now();
     this.holding = false;
+    this.dragging = false;
     clearTimeout(this.holdTimer);
     this.holdTimer = setTimeout(() => {
       if (!this.active) return;
@@ -76,7 +78,9 @@ export class InputController {
       const dist = Math.hypot(p.x - this.startX, p.y - this.startY);
       if (dist > 0.01) {
         clearTimeout(this.holdTimer);
-        this.onAction({ type: 'drag', x: p.x, y: p.y, dx, dy, angle, isStart: false, isEnd: false });
+        const isStart = !this.dragging;
+        this.dragging = true;
+        this.onAction({ type: 'drag', x: p.x, y: p.y, dx, dy, angle, isStart, isEnd: false });
       }
     }
   }
@@ -92,10 +96,12 @@ export class InputController {
     } else if (dist <= 0.01 && dt < 220) {
       this.onAction({ type: 'click', x: p.x, y: p.y });
     } else {
+      const wasDragging = this.dragging;
       this.onAction({ type: 'drag', x: p.x, y: p.y, isStart: false, isEnd: true, dx: 0, dy: 0, angle: 0 });
     }
     this.active = false;
     this.pointerId = null;
+    this.dragging = false;
   }
 }
 

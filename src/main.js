@@ -8,13 +8,12 @@ import { AudioEngine } from './audio/audioEngine.js';
 import { preloadAllBuffers } from './audio/buffers.js';
 import { InputController } from './input.js';
 import { FSM } from './fsm.js';
-import { RulesEngine } from './rules.js';
 import { Renderer } from './visuals/renderer.js';
-import { AccidentScheduler } from './accidents.js';
 import { setPromptText, whiteBlinkAndFade } from './ui.js';
 import { initLogging, log } from './logging.js';
 import { SoundManager } from './audio/soundManager.js';
 import { createFactory } from './visuals/registry.js';
+import { Sequencer } from './sequencer.js';
 
 const overlay = document.getElementById('overlay');
 const promptEl = document.getElementById('prompt');
@@ -27,15 +26,20 @@ let audio = null;
 let buffersReady = false;
 let input = null;
 let fsm = null;
-let rules = null;
 let renderer = null;
-let accidentScheduler = null;
 let sounds = null;
-let alarmHandle = null;
-let alarmVisual = null;
+let sequencer = null;
+let appConfig = null;
 
 function setPrompt(text) {
   setPromptText(text);
+}
+
+// Helper function to get visual effect name from config for a given sound ID
+function getVisualForSound(soundId) {
+  if (!appConfig) return null;
+  const soundMeta = (appConfig.sounds || []).find(s => s.id === soundId);
+  return soundMeta?.visual || null;
 }
 
 function resize() {
@@ -59,24 +63,7 @@ function frame(ts) {
   frame._lastTs = now;
   const dtSec = Math.max(0, (now - last) / 1000);
   if (fsm) fsm.tick(dtSec);
-  if (rules) rules.tick();
   drawPlaceholder(now);
-
-  // Update alarm panner following its visual x
-  if (alarmHandle && alarmVisual) {
-    try {
-      const pos = alarmVisual.getPosition?.();
-      if (pos && canvas.width) alarmHandle.setPan(pos.x / canvas.width);
-    } catch(_){}
-  }
-
-  // End sequence when Chaos tState >= 60s
-  if (!frame._ended && fsm?.state === 'Chaos' && (fsm?.tState ?? 0) >= 60) {
-    frame._ended = true;
-    try { audio?.stopAll(); } catch (_) {}
-    whiteBlinkAndFade({ blinkMs: 100, fadeMs: 1500 });
-    renderer?.clearAllVisuals?.();
-  }
   rafId = requestAnimationFrame(frame);
 }
 
@@ -116,59 +103,22 @@ function start() {
       // For now, lightly nudge prompt visibility on interactions
       if (action?.type === 'click') {
         if (fsm) fsm.recordUserAction();
-        if (rules) rules.onUserAction();
         log('user:action', { type: 'click' });
-        setPrompt('Multitasking is easy. Add more. More.');
-        setTimeout(() => setPrompt(''), 900);
-
-        // Basic mapping: left bottom toggles stove; right bottom toggles tap; top center microwave; center one-shots
-        const nx = action.x, ny = action.y;
-        const px = nx * canvas.width; const py = ny * canvas.height;
-        if (ny > 0.66 && nx < 0.33) {
-          const h = sounds?.toggleSustained('stove', { x: nx });
-          fsm?.setStove(!!h);
-          try { const v=createFactory('heatRing', { size: 40 }, { width: canvas.width, height: canvas.height }); v.setPosition(px, py); renderer?.addVisual(v); } catch(_){}
-        } else if (ny > 0.66 && nx > 0.66) {
-          sounds?.toggleSustained('tap', { x: nx });
-          try { const v=createFactory('rippleEmitter', {}, { width: canvas.width, height: canvas.height }); v.setPosition(px, py); renderer?.addVisual(v); } catch(_){}
-        } else if (ny < 0.33 && Math.abs(nx-0.5) < 0.2) {
-          sounds?.playOneShot('microwave', { x: nx });
-          try { const v=createFactory('microwaveGrid', { lifespanMs: 1000 }, { width: canvas.width, height: canvas.height }); v.setPosition(px, py); renderer?.addVisual(v); } catch(_){}
-          fsm?.bumpMicrowave();
-        } else {
-          const pick = Math.random();
-          const id = pick < 0.34 ? 'bag_rustling' : (pick < 0.67 ? 'glass_clink' : 'lighter');
-          const vis = id==='bag_rustling'? 'polygonWrinkle' : (id==='glass_clink' ? 'starburstShards' : 'flareHeat');
-          try { const v=createFactory(vis, {}, { width: canvas.width, height: canvas.height }); v.setPosition(px, py); renderer?.addVisual(v); } catch(_){}
-          sounds?.playOneShot(id, { x: nx });
-        }
+        sequencer?.advance();
       }
       if (action?.type === 'hold') {
         if (fsm && action.phase === 'start') fsm.recordUserAction();
-        if (rules && action.phase === 'start') rules.onUserAction();
         log('user:action', { type: 'hold', phase: action.phase });
         if (action.phase === 'start') {
-          const nx = action.x, ny = action.y; const px = nx*canvas.width, py=ny*canvas.height;
-          // start spray by default
-          sounds?.playOneShot('cooking_spray', { x: nx });
-          try { const v=createFactory('sprayCone', {}, { width: canvas.width, height: canvas.height }); v.setPosition(px, py); renderer?.addVisual(v); } catch(_){}
+          sequencer?.advance('hold', action);
         }
       }
       if (action?.type === 'drag') {
         if (fsm && action.isStart) fsm.recordUserAction();
-        if (rules && action.isStart) rules.onUserAction();
         log('user:action', { type: 'drag' });
-        // Water pour path visual; one-shot audio (first drag)
-        const nx = action.x, ny = action.y; const px = nx*canvas.width, py=ny*canvas.height;
-        try {
-          if (action.isStart === true) {
-            sounds?.playOneShot('water_pour', { x: nx });
-            if (fsm?.stoveOn) sounds?.startSustained('boiling_water', { x: nx });
-          }
-          const v=createFactory('ribbonWave', {}, { width: canvas.width, height: canvas.height });
-          v.setPosition(px, py);
-          renderer?.addVisual(v);
-        } catch(_){}
+        if (action.isStart === true) {
+          sequencer?.advance('drag', action);
+        }
       }
     });
   }
@@ -196,31 +146,36 @@ setPrompt('');
 (async () => {
   try {
     const cfg = await loadAppConfig('./config/app.json');
+    appConfig = cfg;
     configLoaded = true;
     initLogging({ debug: !!cfg?.meta?.debug, getState: () => fsm?.state || 'Unknown' });
     log('app:init', {});
     audio = new AudioEngine({ debug: !!cfg?.meta?.debug });
     fsm = new FSM(cfg);
-    accidentScheduler = new AccidentScheduler(cfg);
     sounds = new SoundManager(audio, cfg);
-    rules = new RulesEngine(fsm, cfg, {
-      scheduleAccident: (reqType, delayMs, reason) => {
-        const type = accidentScheduler.nextType(reqType);
-        const w = canvas.width, h = canvas.height;
-        const pos = accidentScheduler.randomPosition(w, h);
-        log('auto:accident_scheduled', { type, dueAt: performance.now() + (delayMs ?? cfg?.accidents?.delayMs ?? 200) });
-        setTimeout(() => {
-          fsm.recordAccident();
-          log('auto:accident_spawn', { type, x: pos.x, y: pos.y });
-        }, Math.max(0, delayMs ?? cfg?.accidents?.delayMs ?? 200));
-      },
-      ensureAlarm: () => {
-        if (!alarmHandle) {
-          alarmHandle = sounds?.startSustained('fire_alarm', { x: 0.5 });
-          try { alarmVisual = createFactory('flashingCircularSpectrogram', {}, { width: canvas.width, height: canvas.height }); renderer?.addVisual(alarmVisual);} catch(_){}
+    sequencer = new Sequencer({
+      getConfig: () => cfg,
+      sounds,
+      fsm,
+      setPrompt: (text) => setPrompt(text),
+      renderer: null, // Will be set after renderer is created
+      createVisual: (soundId, x, y) => {
+        const visualName = getVisualForSound(soundId);
+        if (visualName && renderer) {
+          try {
+            const px = x * canvas.width;
+            const py = y * canvas.height;
+            const v = createFactory(visualName, {}, { width: canvas.width, height: canvas.height });
+            v.setPosition(px, py);
+            renderer.addVisual(v);
+          } catch(_){}
         }
       }
     });
+    // Ensure initial state's sequence is loaded (e.g., Preparing)
+    if (sequencer && fsm?.state) {
+      sequencer.resetForState(fsm.state);
+    }
     fsm.setHooks({
       onEnter: ({ state }) => {
         try {
@@ -229,23 +184,23 @@ setPrompt('');
           if (prompt) setPrompt(prompt);
         } catch (_) {}
         log('state:enter', { state });
-        if (rules) rules.handleEnterState(state);
+        sequencer?.resetForState(state);
       }
     });
-
     // Preload and decode all audio buffers
     try {
-      await preloadAllBuffers(audio, cfg?.sounds || [], { basePath: './assets/audio/' });
+      await preloadAllBuffers(audio, cfg?.sounds || [], { basePath: '/assets/audio/' });
       buffersReady = true;
       log('app:assets_loaded', {});
     } catch (err) {
       console.warn('[audio] buffer preload failed', err);
     }
-
     // Visual renderer
     renderer = new Renderer(canvas);
     const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
     renderer.resize(canvas.width, canvas.height, dpr);
+    // Update sequencer with renderer reference
+    if (sequencer) sequencer.renderer = renderer;
   } catch (err) {
     console.error('[main] config load failed', err);
     if (overlay) {
