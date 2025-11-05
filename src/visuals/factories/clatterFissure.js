@@ -29,7 +29,7 @@ export function create(params = {}, ctx = {}) {
       const mx = (x + nx) * 0.5;
       const my = (y + ny) * 0.5;
       const geo = new THREE.PlaneGeometry(segLen, thickness);
-      const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.95 });
+      const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.85 });
       mat.depthWrite = false; mat.depthTest = false;
       const seg = new THREE.Mesh(geo, mat);
       seg.position.set(mx, my, 0);

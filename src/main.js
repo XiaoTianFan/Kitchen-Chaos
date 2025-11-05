@@ -9,7 +9,6 @@ import { preloadAllBuffers } from './audio/buffers.js';
 import { InputController } from './input.js';
 import { FSM } from './fsm.js';
 import { Renderer } from './visuals/renderer.js';
-import { setPromptText, whiteBlinkAndFade } from './ui.js';
 import { initLogging, log } from './logging.js';
 import { SoundManager } from './audio/soundManager.js';
 import { createFactory } from './visuals/registry.js';
@@ -17,12 +16,9 @@ import { Sequencer } from './sequencer.js';
 import { gateBus } from './audio/gateBus.js';
 
 const overlay = document.getElementById('overlay');
-const promptEl = document.getElementById('prompt');
 const canvas = document.getElementById('scene');
 const gateDebugEl = document.getElementById('gate-debug');
 if (gateDebugEl) gateDebugEl.textContent = 'gate levels: —';
-// Hide legacy grey overlay at boot; we render prompt on-canvas instead
-overlay?.classList.add('hidden');
 
 let rafId = 0;
 let started = false;
@@ -38,9 +34,34 @@ let appConfig = null;
 let chaosCutDone = false;
 let chaosCutTimeoutId = null;
 let chaosLastCueTriggeredAt = 0;
+let promptTimeoutId = null;
+
+function blinkSequence(times, durationMs, onDone) {
+  const n = Math.max(0, times | 0);
+  const dur = Number.isFinite(durationMs) ? durationMs : 200;
+  const next = (remaining) => {
+    if (remaining <= 0) {
+      try { if (typeof onDone === 'function') onDone(); } catch (_) {}
+      return;
+    }
+    try {
+      renderer?.blinkWhite?.(dur, () => next(remaining - 1));
+    } catch (_) {
+      next(remaining - 1);
+    }
+  };
+  next(n);
+}
 
 function setPrompt(text) {
-  setPromptText(text);
+  if (promptTimeoutId) {
+    try { clearTimeout(promptTimeoutId); } catch (_) {}
+    promptTimeoutId = null;
+  }
+  // Delay showing the narrative text by 2s
+  promptTimeoutId = setTimeout(() => {
+    try { renderer?.fadeInCenterText?.(text, 0.7, 0.9); } catch (_) {}
+  }, 2500);
 }
 
 // Helper function to get visual effect name from config for a given sound ID
@@ -77,6 +98,29 @@ function frame(ts) {
     const wet = 0.1 + 0.8 * k; // start subtle, grow to strong
     try { audio.setFxDelayWetMix(wet, 0.25); } catch (_) {}
   }
+  // If Chaos sequence has finished (last cue executed), schedule end if not already scheduled
+  try {
+    if (fsm && fsm.state === 'Chaos' && sequencer && Array.isArray(sequencer.sequence)) {
+      const total = (sequencer.sequence.length | 0);
+      if (total > 0 && (sequencer.index | 0) >= total && !chaosCutDone && !chaosCutTimeoutId) {
+        chaosLastCueTriggeredAt = fsm.t;
+        chaosCutTimeoutId = setTimeout(() => {
+          if (chaosCutDone) return;
+          try { audio?.stopAll?.(); } catch (_) {}
+          log('audio:chaos_cut', { reason: '10s_after_last_chaos_event' });
+          chaosCutDone = true;
+          try {
+            // Blink white 5 times, then fade out visuals, then fade in closing line
+            blinkSequence(5, 200, () => {
+              renderer?.fadeOutNonGrid?.(3.0, () => {
+                renderer?.fadeInCenterText?.("No worries... C'est la vie!", 1.5, 0.8);
+              });
+            });
+          } catch (_) {}
+        }, 5000);
+      }
+    }
+  } catch (_) {}
   // (Old 30s Chaos cutoff removed; cutoff now scheduled 10s after last Chaos cue.)
   drawPlaceholder(now, dtSec);
   rafId = requestAnimationFrame(frame);

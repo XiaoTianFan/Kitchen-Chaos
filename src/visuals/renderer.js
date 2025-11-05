@@ -27,6 +27,9 @@ export class Renderer {
 
     // fade-out state for end-of-sequence clearing
     this._fade = null; // { t, dur, targets: [ { material, orig } ] }
+    // full-screen white blink overlay and center text fade-in state
+    this._blink = null; // { t, dur, mesh, onComplete }
+    this._centerFadeIn = null; // { t, dur, target }
 
     // camera/scene shake state
     this._shakeT = 0;      // seconds remaining
@@ -50,6 +53,8 @@ export class Renderer {
 
     // center text prompt (sprite)
     this.centerTextSprite = null;
+    this.centerTextMessage = null;
+    this.centerTextOpacity = 0.75;
   }
 
   resize(pixelWidth, pixelHeight, dpr) {
@@ -68,9 +73,9 @@ export class Renderer {
     // update grid to match new canvas size
     this._updateGridPlane();
 
-    // re-center prompt if present
+    // re-center prompt if present (and rebuild for proportional sizing)
     if (this.centerTextSprite) {
-      this.centerTextSprite.position.set(w * 0.5, h * 0.5, 9);
+      try { this.showCenterText(this.centerTextMessage, this.centerTextOpacity); } catch (_) {}
     }
   }
 
@@ -115,7 +120,36 @@ export class Renderer {
         // fade complete: clear visuals and remove transient meshes, keep grid/background
         try { this.clearAllVisuals(); } catch (_) {}
         try { this.heartbeat?.removeFromParent?.(); } catch (_) {}
+        const done = this._fade?.onComplete;
         this._fade = null;
+        try { if (typeof done === 'function') done(); } catch (_) {}
+      }
+    }
+    // White blink overlay update
+    if (this._blink && this._blink.mesh && this._blink.dur > 0) {
+      const b = this._blink;
+      b.t = Math.min(b.dur, (b.t + dt));
+      const k = Math.max(0, 1 - (b.t / b.dur));
+      try { if (b.mesh.material) { b.mesh.material.opacity = k; b.mesh.material.needsUpdate = true; } } catch (_) {}
+      if (b.t >= b.dur) {
+        try { b.mesh.removeFromParent(); } catch (_) {}
+        const cb = b.onComplete;
+        this._blink = null;
+        try { if (typeof cb === 'function') cb(); } catch (_) {}
+      }
+    }
+    // Center text fade-in update
+    if (this.centerTextSprite && this._centerFadeIn && this._centerFadeIn.dur > 0) {
+      const cf = this._centerFadeIn;
+      cf.t = Math.min(cf.dur, (cf.t + dt));
+      const a = Math.max(0, Math.min(1, cf.t / cf.dur));
+      try {
+        const finalA = (typeof this.centerTextOpacity === 'number') ? this.centerTextOpacity : 0.75;
+        this.centerTextSprite.material.opacity = finalA * a;
+        this.centerTextSprite.material.needsUpdate = true;
+      } catch (_) {}
+      if (cf.t >= cf.dur) {
+        this._centerFadeIn = null;
       }
     }
     this.renderer.render(this.scene, this.camera);
@@ -220,7 +254,7 @@ Renderer.prototype._hexToRgb = function _hexToRgb(hex) {
   return { r, g, b };
 };
 
-Renderer.prototype.fadeOutNonGrid = function fadeOutNonGrid(durationSec) {
+Renderer.prototype.fadeOutNonGrid = function fadeOutNonGrid(durationSec, onComplete) {
   const dur = Math.max(0.001, Number.isFinite(durationSec) ? durationSec : 3.0);
   const targets = [];
   try {
@@ -237,20 +271,60 @@ Renderer.prototype.fadeOutNonGrid = function fadeOutNonGrid(durationSec) {
       }
     });
   } catch (_) {}
-  this._fade = { t: 0, dur, targets };
+  this._fade = { t: 0, dur, targets, onComplete };
+};
+
+Renderer.prototype.blinkWhite = function blinkWhite(durationMs = 180, onComplete) {
+  try {
+    const dur = Math.max(0.001, (Number.isFinite(durationMs) ? durationMs : 180) / 1000);
+    const geometry = new THREE.PlaneGeometry(this.width, this.height);
+    const material = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 1.0, depthWrite: false, depthTest: false });
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.position.set(this.width * 0.5, this.height * 0.5, 10);
+    mesh.renderOrder = 10000;
+    this.scene.add(mesh);
+    this._blink = { t: 0, dur, mesh, onComplete };
+  } catch (_) {}
+};
+
+Renderer.prototype.fadeInCenterText = function fadeInCenterText(text, durationSec = 1.5, finalOpacity = 0.75) {
+  try {
+    const msg = String(text || '').trim() || '';
+    // Build sprite (it sets material.opacity = finalOpacity), then set to 0 and ramp to final
+    this.showCenterText(msg, finalOpacity);
+    if (this.centerTextSprite && this.centerTextSprite.material) {
+      this.centerTextSprite.material.opacity = 0;
+      this.centerTextSprite.material.needsUpdate = true;
+    }
+    const dur = Math.max(0.001, Number.isFinite(durationSec) ? durationSec : 1.5);
+    this._centerFadeIn = { t: 0, dur };
+  } catch (_) {}
 };
 
 Renderer.prototype.showCenterText = function showCenterText(text, opacity) {
   try {
     const msg = String(text || '').trim() || 'Click Anywhere to Start Cooking';
     const alpha = Math.max(0, Math.min(1, Number.isFinite(opacity) ? opacity : 0.75));
+    const minDim = Math.max(1, Math.min(this.width, this.height));
+    const fontPx = Math.max(16, Math.min(96, Math.floor(minDim * 0.06)));
+    const padding = Math.floor(fontPx * 0.6);
+
+    const mcanvas = document.createElement('canvas');
+    const mctx = mcanvas.getContext('2d');
+    mctx.font = `bold ${fontPx}px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif`;
+    const textW = Math.ceil(mctx.measureText(msg).width);
+
+    const baseW = textW + padding * 2;
+    const baseH = Math.ceil(fontPx * 1.4);
+    const oversample = 2;
     const c = document.createElement('canvas');
-    c.width = 1600; c.height = 300;
+    c.width = Math.max(2, baseW * oversample);
+    c.height = Math.max(2, baseH * oversample);
     const ctx = c.getContext('2d');
     ctx.clearRect(0, 0, c.width, c.height);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.font = 'bold 112px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif';
+    ctx.font = `bold ${fontPx * oversample}px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif`;
     ctx.fillStyle = 'rgba(255,255,255,1)';
     ctx.fillText(msg, c.width * 0.5, c.height * 0.5);
 
@@ -259,7 +333,7 @@ Renderer.prototype.showCenterText = function showCenterText(text, opacity) {
     const mat = new THREE.SpriteMaterial({ map: tex, color: new THREE.Color(palette.foreground), transparent: true, opacity: alpha, depthTest: false, depthWrite: false });
     const spr = new THREE.Sprite(mat);
     spr.center.set(0.5, 0.5);
-    spr.scale.set(c.width, c.height, 1);
+    spr.scale.set(baseW, baseH, 1);
     spr.position.set(this.width * 0.5, this.height * 0.5, 9);
     spr.renderOrder = 9999;
 
@@ -269,6 +343,8 @@ Renderer.prototype.showCenterText = function showCenterText(text, opacity) {
       try { this.centerTextSprite.removeFromParent(); } catch (_) {}
     }
     this.centerTextSprite = spr;
+    this.centerTextMessage = msg;
+    this.centerTextOpacity = alpha;
     this.scene.add(spr);
   } catch (_) {}
 };
@@ -279,5 +355,6 @@ Renderer.prototype.hideCenterText = function hideCenterText() {
   try { this.centerTextSprite.material?.dispose?.(); } catch (_) {}
   try { this.centerTextSprite.removeFromParent(); } catch (_) {}
   this.centerTextSprite = null;
+  this.centerTextMessage = null;
 };
 
