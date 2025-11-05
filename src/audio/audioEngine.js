@@ -12,6 +12,13 @@ export class AudioEngine {
       fx: null,
       accidents: null
     };
+    // FX bus processing chain (delay send/return)
+    this.fxChain = {
+      dryGain: null,
+      wetGain: null,
+      delay: null,
+      feedback: null
+    };
     this._unlocked = false;
   }
 
@@ -56,8 +63,32 @@ export class AudioEngine {
 
     // Route: buses → masterGain → compressor → limiter → destination
     this.buses.beds.connect(this.masterGain);
-    this.buses.fx.connect(this.masterGain);
-    this.buses.accidents.connect(this.masterGain);
+    // FX bus goes through delay insert with wet/dry mix
+    this.fxChain.dryGain = ctx.createGain();
+    this.fxChain.wetGain = ctx.createGain();
+    this.fxChain.delay = ctx.createDelay(1.0); // up to 1s max
+    this.fxChain.feedback = ctx.createGain();
+
+    // Defaults: subtle until automated
+    this.fxChain.dryGain.gain.value = 1.0;
+    this.fxChain.wetGain.gain.value = 0.0;
+    this.fxChain.delay.delayTime.value = 0.25; // 250 ms slapback
+    this.fxChain.feedback.gain.value = 0.35; // gentle repeats
+
+    // Wire FX chain: buses (fx, accidents) → [dry || delay→wet] → master
+    this.buses.fx.connect(this.fxChain.dryGain);
+    this.buses.accidents.connect(this.fxChain.dryGain);
+    this.fxChain.dryGain.connect(this.masterGain);
+
+    this.buses.fx.connect(this.fxChain.delay);
+    this.buses.accidents.connect(this.fxChain.delay);
+    this.fxChain.delay.connect(this.fxChain.wetGain);
+    this.fxChain.wetGain.connect(this.masterGain);
+    // Feedback loop
+    this.fxChain.delay.connect(this.fxChain.feedback);
+    this.fxChain.feedback.connect(this.fxChain.delay);
+
+    // Other buses direct
 
     this.masterGain.connect(this.masterCompressor);
     this.masterCompressor.connect(this.masterLimiter);
@@ -117,6 +148,26 @@ export class AudioEngine {
     if (!res.ok) throw new Error(`Failed to fetch ${url}: ${res.status}`);
     const arr = await res.arrayBuffer();
     return await this.context.decodeAudioData(arr);
+  }
+
+  // Mix between dry (1 - mix) and wet (mix) on FX bus delay insert
+  setFxDelayWetMix(mix = 0, rampSeconds = 0.2) {
+    this._ensureContext();
+    const m = Math.max(0, Math.min(1, Number.isFinite(mix) ? mix : 0));
+    const t = this.context.currentTime;
+    const dry = 1 - m;
+    const wet = m;
+    try {
+      const { dryGain, wetGain } = this.fxChain;
+      if (!dryGain || !wetGain) return;
+      dryGain.gain.cancelScheduledValues(t);
+      wetGain.gain.cancelScheduledValues(t);
+      dryGain.gain.setValueAtTime(dryGain.gain.value, t);
+      wetGain.gain.setValueAtTime(wetGain.gain.value, t);
+      const rt = Math.max(0.001, rampSeconds || 0);
+      dryGain.gain.linearRampToValueAtTime(dry, t + rt);
+      wetGain.gain.linearRampToValueAtTime(wet, t + rt);
+    } catch (_) {}
   }
 }
 

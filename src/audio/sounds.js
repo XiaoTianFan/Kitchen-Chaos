@@ -13,7 +13,7 @@ function mapXToPan(x) {
   return xn * 2 - 1;
 }
 
-export function playOneShot(id, { x = 0.5, bus = 'fx', gain = 1.0, rate = 1.0 } = {}) {
+export function playOneShot(id, { x = 0.5, bus = 'fx', gain = 1.0, rate = 1.0, fadeInMs, fadeOutMs } = {}) {
   if (!engine) {
     console.warn(`[sounds] Engine not initialized, cannot play '${id}'`);
     return null;
@@ -29,14 +29,14 @@ export function playOneShot(id, { x = 0.5, bus = 'fx', gain = 1.0, rate = 1.0 } 
   source.playbackRate.value = rate;
 
   const now = context.currentTime;
-  const fadeIn = 0.015;
-  const fadeOut = 0.03;
+  const fadeIn = Math.max(0.001, (typeof fadeInMs === 'number' ? fadeInMs / 1000 : 0.015));
+  const fadeOut = Math.max(0.001, (typeof fadeOutMs === 'number' ? fadeOutMs / 1000 : 0.03));
   const dur = buffer.duration / rate;
 
   // fades
   g.gain.setValueAtTime(0.0001, now);
   g.gain.exponentialRampToValueAtTime(Math.max(0.0001, gain), now + fadeIn);
-  g.gain.setValueAtTime(Math.max(0.0001, gain), now + Math.max(fadeIn, dur - fadeOut));
+  g.gain.setValueAtTime(Math.max(0.0001, gain), now + Math.max(fadeIn, Math.max(0.0, dur - fadeOut)));
   g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
 
   source.start(now);
@@ -52,7 +52,7 @@ export function playOneShot(id, { x = 0.5, bus = 'fx', gain = 1.0, rate = 1.0 } 
 
 const sustained = new Map(); // id -> handle
 
-export function playSustained(id, { x = 0.5, bus = 'beds', gain = 1.0, rate = 1.0 } = {}) {
+export function playSustained(id, { x = 0.5, bus = 'beds', gain = 1.0, rate = 1.0, fadeInMs } = {}) {
   if (!engine) {
     console.warn(`[sounds] Engine not initialized, cannot play '${id}'`);
     return null;
@@ -69,36 +69,37 @@ export function playSustained(id, { x = 0.5, bus = 'beds', gain = 1.0, rate = 1.
   source.playbackRate.value = rate;
 
   const now = context.currentTime;
-  const fadeIn = 0.3; // longer for beds
+  const fadeIn = Math.max(0.001, (typeof fadeInMs === 'number' ? fadeInMs / 1000 : 0.3));
   g.gain.setValueAtTime(0.0001, now);
   g.gain.exponentialRampToValueAtTime(Math.max(0.0001, gain), now + fadeIn);
   source.start(now);
 
   const handle = {
     setPan: (x) => { panner.pan.value = mapXToPan(x); },
-    stop: () => {
+    stop: (fadeOutMsParam) => {
       const t = context.currentTime;
+      const out = Math.max(0.001, (typeof fadeOutMsParam === 'number' ? fadeOutMsParam / 1000 : 0.03));
       g.gain.cancelScheduledValues(t);
       g.gain.setValueAtTime(Math.max(0.0001, g.gain.value), t);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.03);
-      try { source.stop(t + 0.04); } catch (_) {}
+      g.gain.exponentialRampToValueAtTime(0.0001, t + out);
+      try { source.stop(t + out + 0.01); } catch (_) {}
     }
   };
   sustained.set(id, handle);
   return handle;
 }
 
-export function stopSustained(id) {
+export function stopSustained(id, { fadeOutMs } = {}) {
   const h = sustained.get(id);
   if (h) {
-    h.stop();
+    h.stop(fadeOutMs);
     sustained.delete(id);
   }
 }
 
 export function toggleSustained(id, opts) {
   if (sustained.has(id)) {
-    stopSustained(id);
+    stopSustained(id, opts || {});
     return null;
   }
   return playSustained(id, opts);

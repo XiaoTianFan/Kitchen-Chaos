@@ -49,6 +49,13 @@ PRD: Kitchen Chaos A/V Story (Web)
 - No meters or time-based transitions. Any conditional logic references simple FSM flags (e.g., `stoveOn`).
 - Accidents and alarms are included as cues within state sequences.
 
+5.1 Per-state sound programming (current build)
+- Preparing: `fridge`, `knife_sharpen` (drag), `chopping`, `cutting_things`, `juicing` (hold), `tap`, `bag_rustling`
+- Cooking: `lighter`, `stove` (looped), `hissing_pan` (looped, requires `stoveOn`), `water_pour` (drag), `glass_stirring` (hold), `cooking_spray` (hold), `microwave`, `glass_clink`, `boiling_water` (looped, requires `stoveOn`)
+- Accident Breakout: `clatter`, `thing_breaking`, `thump`
+- Chaos: `fire_alarm` (looped), `clatter`, `thing_breaking`, `thump`
+  - During Chaos, the FX bus delay wet mix ramps up gradually across the state (approx. 0.1 → 0.9 over ~30 s) creating an increasingly echoic space.
+
 6) Interaction grammar (sequencer-gated)
 - Click anywhere: advances only if the immediate next cue is eligible for `click`.
 - Hold start: advances only if the immediate next cue declares `requires: "hold"`.
@@ -81,6 +88,10 @@ PRD: Kitchen Chaos A/V Story (Web)
 8) Audio model
 - Defaults: gain 0 dB, playbackRate 1.0, fadeIn 15 ms, fadeOut 30 ms (short fades to avoid clicks; does not affect one-shot length noticeably).
 - Web Audio routing per entity: BufferSource → GainNode → StereoPannerNode → BusGain → MasterCompressor → MasterLimiter → destination.
+- FX/Accidents processing: The `fx` and `accidents` buses share a delay insert with wet/dry mix and feedback.
+  - Chain: (fx + accidents) → [dry path] + [delay → wet path] → master.
+  - Defaults: delayTime ≈ 250 ms, feedback ≈ 0.35, wet mix 0.0 outside Chaos.
+  - Scope: `beds` remain dry; both `fx` and `accidents` are affected by the delay.
 - Panning: pan = map(xNormalized ∈ [0..1]) to [-1..1]. Update if the visual moves (e.g., alarm orbit).
 - Build-ups: sustained loops (boiling/hissing) can ramp gain over 1–3 s on start.
 - Concurrency: no hard cap; rely on compressor/limiter to prevent clipping.
@@ -101,6 +112,7 @@ PRD: Kitchen Chaos A/V Story (Web)
 - Accident Breakout: “It’s fine. Totally fine.”
 - Chaos: “Nailed it.”
 - Display bottom-center as small captions; fade in/out around state changes.
+ - Cue text style: In Preparing/Cooking, texts are friendly hints about what the user will do next. In Accident Breakout/Chaos, texts describe what just happened (event narration), not predictions.
 
 12) Error handling and edge cases
 - If AudioContext fails to start, display a tap-to-start overlay.
@@ -150,8 +162,7 @@ Example minimal schema:
         "name": "Preparing",
         "enterActions": [{ "type": "uiPrompt", "text": "Maybe light something." }],
         "sequence": [
-          { "action": "playOneShot", "sound": "lighter" },
-          { "action": "startSustained", "sound": "stove", "fsm": { "setStove": true } },
+          { "action": "playOneShot", "sound": "fridge" },
           { "action": "gotoState", "to": "Cooking" }
         ]
       }

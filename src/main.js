@@ -64,6 +64,12 @@ function frame(ts) {
   frame._lastTs = now;
   const dtSec = Math.max(0, (now - last) / 1000);
   if (fsm) fsm.tick(dtSec);
+  // In Chaos, progressively raise FX bus delay wet mix over 30s
+  if (audio && fsm && fsm.state === 'Chaos') {
+    const k = Math.max(0, Math.min(1, fsm.tState / 30));
+    const wet = 0.1 + 0.8 * k; // start subtle, grow to strong
+    try { audio.setFxDelayWetMix(wet, 0.25); } catch (_) {}
+  }
   // Chaos end: after 30s in Chaos, cut audio abruptly (visuals handled later)
   if (fsm && fsm.state === 'Chaos' && fsm.tState >= 30 && !chaosCutDone) {
     try { audio?.stopAll?.(); } catch (_) {}

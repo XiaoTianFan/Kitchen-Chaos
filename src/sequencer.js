@@ -36,10 +36,14 @@ export class Sequencer {
     const cue = this.sequence[currentIdx];
     const req = cue?.requires; // 'click' | 'hold' | 'drag' | undefined
     const matchesInput = !req || req === inputType;
-    if (!matchesInput) return; // wait for correct gesture
+    if (!matchesInput) {
+      log('seq:input_blocked', { state: this.stateName, index: currentIdx, req, got: inputType });
+      return; // wait for correct gesture
+    }
     if (cue?.if && typeof cue.if === 'object') {
       for (const k of Object.keys(cue.if)) {
         if ((this.fsm?.[k]) !== cue.if[k]) {
+          log('seq:cond_blocked', { state: this.stateName, index: currentIdx, cond: cue.if, failedKey: k, fsmVal: this.fsm?.[k] });
           return; // wait until conditions satisfied
         }
       }
@@ -51,25 +55,34 @@ export class Sequencer {
       // Derive position: prefer actionCtx normalized x,y if present
       const nx = (actionCtx && typeof actionCtx.x === 'number') ? actionCtx.x : (cue?.x ?? 0.5);
       const ny = (actionCtx && typeof actionCtx.y === 'number') ? actionCtx.y : (cue?.y ?? 0.5);
+      // Optional per-cue audio options
+      const audioOpts = { x: nx };
+      if (typeof cue?.gain === 'number') audioOpts.gain = cue.gain;
+      if (typeof cue?.fadeInMs === 'number') audioOpts.fadeInMs = cue.fadeInMs;
+      if (typeof cue?.fadeOutMs === 'number') audioOpts.fadeOutMs = cue.fadeOutMs;
       if (action && sound) {
         // Ensure buffer is ready; if not, do not advance index yet
         const haveBuffer = !!getBuffer(sound);
         if (!haveBuffer) {
+          log('seq:buffer_missing', { state: this.stateName, index: currentIdx, id: sound });
           return; // wait for next input once buffers are ready
         }
         if (action === 'playOneShot') {
-          this.sounds?.playOneShot(sound, { x: nx });
+          const h = this.sounds?.playOneShot(sound, audioOpts);
+          if (!h) log('sound:play_fail', { id: sound, action, state: this.stateName, index: currentIdx });
           if (this.createVisual) this.createVisual(sound, nx, ny);
           log('sound:play', { id: sound, action, state: this.stateName, index: currentIdx, x: nx, y: ny });
         } else if (action === 'startSustained') {
-          this.sounds?.startSustained(sound, { x: nx });
+          const h = this.sounds?.startSustained(sound, audioOpts);
+          if (!h) log('sound:start_fail', { id: sound, action, state: this.stateName, index: currentIdx });
           if (this.createVisual) this.createVisual(sound, nx, ny);
           log('sound:start', { id: sound, action, state: this.stateName, index: currentIdx, x: nx, y: ny });
         } else if (action === 'stopSustained') {
-          this.sounds?.stopSustained(sound);
+          this.sounds?.stopSustained(sound, audioOpts);
           log('sound:stop', { id: sound, action, state: this.stateName, index: currentIdx });
         } else if (action === 'toggleSustained') {
-          this.sounds?.toggleSustained(sound, { x: nx });
+          const h = this.sounds?.toggleSustained(sound, audioOpts);
+          // toggle may return null when stopping; treat null on start as failure
           if (this.createVisual) this.createVisual(sound, nx, ny);
           log('sound:toggle', { id: sound, action, state: this.stateName, index: currentIdx, x: nx, y: ny });
         }
