@@ -1,13 +1,14 @@
 // Three.js renderer setup with DPR sizing
 
 import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
+import { palette } from '../theme/palette.js';
 
 export class Renderer {
   constructor(canvas) {
     this.canvas = canvas;
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: 'high-performance' });
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0xf7f7fb);
+    this.scene.background = new THREE.Color(palette.background);
     this.camera = new THREE.OrthographicCamera(0, 1, 1, 0, -10, 10);
     this.width = 1;
     this.height = 1;

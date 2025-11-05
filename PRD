@@ -15,28 +15,30 @@ PRD: Kitchen Chaos A/V Story (Web)
 - UI narrative appears bottom-center as short captions.
 
 3) Assets (final samples; in-app gain/speed/fades allowed)
-- File naming convention: All filenames use underscores instead of spaces (e.g., "bag_rustling.wav" not "bag rustling.wav") for consistent URL handling.
+- File naming convention: All filenames use underscores instead of spaces (e.g., "bag_rustling.ogg" not "bag rustling.ogg") for consistent URL handling.
 - Asset path: Files are served from `/assets/audio/` (absolute path from server root).
-- bag_rustling.wav
-- boiling_water.wav
-- chopping.wav
-- clatter.wav
-- cooking_spray.wav
-- cutting_things.wav
-- fire_alarm.wav
-- fridge.wav
-- glass_clink.wav
-- glass_stirring.wav
-- hissing_pan.wav
-- juicing.wav
-- knife_sharpen.wav
-- lighter.wav
-- microwave.wav
-- stove.wav
-- tap.wav
-- thing_breaking.wav
-- thump.wav
-- water_pour.wav
+- bag_rustling.ogg
+- boiling_water.ogg
+- chopping.ogg
+- clatter.ogg
+- cooking_spray.ogg
+- cutting_things.ogg
+- fire_alarm.ogg
+- fridge.ogg
+- glass_clink.ogg
+- glass_stirring.ogg
+- hissing_pan.ogg
+- knife_sharpen.ogg
+- lighter.ogg
+- microwave.ogg
+- objects_falling.ogg
+- pot_falling.ogg
+- squeeze_juice.ogg
+- stove.ogg
+- stove_fire.ogg
+- tap.ogg
+- thump.ogg
+- water_pour.ogg
 
 4) Sound triggering model (simplified)
 - Two playback modalities, determined by sequence actions:
@@ -50,10 +52,10 @@ PRD: Kitchen Chaos A/V Story (Web)
 - Accidents and alarms are included as cues within state sequences.
 
 5.1 Per-state sound programming (current build)
-- Preparing: `fridge`, `knife_sharpen` (drag), `chopping`, `cutting_things`, `juicing` (hold), `tap`, `bag_rustling`
-- Cooking: `lighter`, `stove` (looped), `hissing_pan` (looped, requires `stoveOn`), `water_pour` (drag), `glass_stirring` (hold), `cooking_spray` (hold), `microwave`, `glass_clink`, `boiling_water` (looped, requires `stoveOn`)
-- Accident Breakout: `clatter`, `thing_breaking`, `thump`
-- Chaos: `fire_alarm` (looped), `clatter`, `thing_breaking`, `thump`
+- Preparing: `fridge`, `knife_sharpen` (drag), `chopping`, `cutting_things`, `squeeze_juice` (hold), `tap`, `bag_rustling`
+- Cooking: `lighter`, `stove` (looped), `stove_fire`, `hissing_pan` (looped, requires `stoveOn`), `water_pour` (drag), `glass_stirring` (hold), `cooking_spray` (hold), `microwave`, `glass_clink`, `boiling_water` (looped, requires `stoveOn`)
+- Accident Breakout: `clatter`, `pot_falling`, `objects_falling`, `thump`
+- Chaos: `fire_alarm` (looped), `clatter`, `pot_falling`, `thump`
   - During Chaos, the FX bus delay wet mix ramps up gradually across the state (approx. 0.1 → 0.9 over ~30 s) creating an increasingly echoic space.
 
 6) Interaction grammar (sequencer-gated)
@@ -83,7 +85,8 @@ PRD: Kitchen Chaos A/V Story (Web)
   - knife sharpen: sparkLine; spark rate from mid-high band.
   - juicing: citrusSplash; droplets outward; sustained while held.
   - microwave: microwaveGrid; pulsing squares; one-shot visual matching sample length.
-  - clatter/thing breaking/thump: accidents; screen shake + bursts; random positions; 500–1200 ms visuals.
+  - clatter/objects falling/pot falling/thump: accidents; screen shake + bursts; random positions; 500–1200 ms visuals.
+  - stove_fire: brief flareHeat burst from burner; 200–400 ms.
 
 8) Audio model
 - Defaults: gain 0 dB, playbackRate 1.0, fadeIn 15 ms, fadeOut 30 ms (short fades to avoid clicks; does not affect one-shot length noticeably).
@@ -98,7 +101,7 @@ PRD: Kitchen Chaos A/V Story (Web)
 - Audio unlock: create/resume AudioContext on first user interaction; preload decode all buffers.
 
 9) Accidents
-- Accidents (clatter, thing_breaking, thump) are sequenced as cues within Accident Breakout and Chaos. No background scheduler.
+- Accidents (`clatter`, `pot_falling`, `objects_falling`, `thump`) are sequenced as cues within Accident Breakout and Chaos. No background scheduler.
 
 10) Spawn rules and motion
 - User-transient: spawn at cursor/touch; short-lived visual near position.
@@ -147,14 +150,14 @@ PRD: Kitchen Chaos A/V Story (Web)
 - fsm: initialState, states with `enterActions` and a linear `sequence` of cues. Supported cue actions: `playOneShot`, `startSustained`, `stopSustained`, `toggleSustained`, `gotoState`. Optional cue fields: `requires` ("click"|"hold"|"drag"), `if` (simple equality on FSM flags), `fsm` (e.g., `{ "setStove": true }`).
 
 15.2 Implementation notes
-- Path resolution: All asset paths use absolute paths from server root (e.g., `/assets/audio/stove.wav`).
+- Path resolution: All asset paths use absolute paths from server root (e.g., `/assets/audio/stove.ogg`).
 - Visual factories implemented: heatRing, ribbonWave, accidentBursts, flashingCircularSpectrogram, pulseStrokes, polygonWrinkle, starburstShards, flareHeat, steamParticles, bubbleField, rippleEmitter, vortexSpiral, sprayCone, sparkLine, citrusSplash, microwaveGrid.
 - Sound mapping: Each sound entry in config includes: id, file, visual, bus. Behavior is determined by `sequence` actions.
 
 Example minimal schema:
 {
   "meta": { "version": 1, "debug": true, "palette": "candyPastels" },
-  "sounds": [ { "id": "stove", "file": "stove.wav", "visual": "heatRing", "bus": "beds" } ],
+  "sounds": [ { "id": "stove", "file": "stove.ogg", "visual": "heatRing", "bus": "beds" } ],
   "fsm": {
     "initialState": "Preparing",
     "states": [

@@ -14,10 +14,13 @@ import { initLogging, log } from './logging.js';
 import { SoundManager } from './audio/soundManager.js';
 import { createFactory } from './visuals/registry.js';
 import { Sequencer } from './sequencer.js';
+import { gateBus } from './audio/gateBus.js';
 
 const overlay = document.getElementById('overlay');
 const promptEl = document.getElementById('prompt');
 const canvas = document.getElementById('scene');
+const gateDebugEl = document.getElementById('gate-debug');
+if (gateDebugEl) gateDebugEl.textContent = 'gate levels: —';
 
 let rafId = 0;
 let started = false;
@@ -136,6 +139,24 @@ function start() {
     });
   }
 }
+
+// Debug UI: show current loudness per soundId (linear and dB)
+const gateLevels = new Map();
+function formatDb(x) { const v = Math.max(1e-8, x); return (20 * Math.log10(v)).toFixed(1); }
+function renderGateDebug() {
+  if (!gateDebugEl) return;
+  let s = '';
+  for (const [id, rms] of gateLevels) {
+    s += `${id}: ${formatDb(rms)} dB (${rms.toFixed(3)})\n`;
+  }
+  gateDebugEl.textContent = s.trim() || '';
+}
+gateBus.addEventListener('gate:level', (e) => {
+  const { soundId, rms } = e.detail || {};
+  if (!soundId) return;
+  gateLevels.set(soundId, rms || 0);
+});
+setInterval(renderGateDebug, 100);
 
 // First interaction unlock handler (placeholder: audio unlock to be wired later)
 function handleFirstInteraction() {

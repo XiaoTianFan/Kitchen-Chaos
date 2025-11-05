@@ -19,7 +19,8 @@ export class SoundManager {
       bus: meta.bus || 'fx',
       gain: gain ?? meta.gain ?? 1.0,
       fadeInMs: fadeInMs ?? meta.fadeInMs,
-      fadeOutMs: fadeOutMs ?? meta.fadeOutMs
+      fadeOutMs: fadeOutMs ?? meta.fadeOutMs,
+      gate: meta.gate
     });
   }
 
@@ -30,7 +31,8 @@ export class SoundManager {
       x,
       bus: meta.bus || 'beds',
       gain: gain ?? meta.gain ?? 0.9,
-      fadeInMs: fadeInMs ?? meta.fadeInMs
+      fadeInMs: fadeInMs ?? meta.fadeInMs,
+      gate: meta.gate
     });
     if (!h) return null; // Buffer not loaded or engine not initialized
     this.sustainedState.set(id, h);

@@ -1,11 +1,13 @@
 // High-level sounds API: play/stop, fades, panning
 
 import { getBuffer } from './buffers.js';
+import { gateService } from './gate.js';
 
 let engine = null;
 
 export function initSounds(audioEngine) {
   engine = audioEngine;
+  try { gateService.setContext(audioEngine?.context); } catch (_) {}
 }
 
 function mapXToPan(x) {
@@ -13,7 +15,7 @@ function mapXToPan(x) {
   return xn * 2 - 1;
 }
 
-export function playOneShot(id, { x = 0.5, bus = 'fx', gain = 1.0, rate = 1.0, fadeInMs, fadeOutMs } = {}) {
+export function playOneShot(id, { x = 0.5, bus = 'fx', gain = 1.0, rate = 1.0, fadeInMs, fadeOutMs, gate: gateCfg = null } = {}) {
   if (!engine) {
     console.warn(`[sounds] Engine not initialized, cannot play '${id}'`);
     return null;
@@ -41,6 +43,14 @@ export function playOneShot(id, { x = 0.5, bus = 'fx', gain = 1.0, rate = 1.0, f
 
   source.start(now);
   source.stop(now + dur + 0.01);
+
+  // Gate registration for this one-shot instance
+  let unregister = null;
+  try {
+    if (engine?.context) gateService.setContext(engine.context);
+    unregister = gateService.register(id, panner, gateCfg || {});
+  } catch (_) {}
+  source.onended = () => { try { unregister?.(); } catch (_) {} };
 
   const handle = {
     stop: () => {
@@ -74,6 +84,13 @@ export function playSustained(id, { x = 0.5, bus = 'beds', gain = 1.0, rate = 1.
   g.gain.exponentialRampToValueAtTime(Math.max(0.0001, gain), now + fadeIn);
   source.start(now);
 
+  // Gate registration for sustained
+  let unregister = null;
+  try {
+    if (engine?.context) gateService.setContext(engine.context);
+    unregister = gateService.register(id, panner, (arguments[1] && arguments[1].gate) || {});
+  } catch (_) {}
+
   const handle = {
     setPan: (x) => { panner.pan.value = mapXToPan(x); },
     stop: (fadeOutMsParam) => {
@@ -83,6 +100,7 @@ export function playSustained(id, { x = 0.5, bus = 'beds', gain = 1.0, rate = 1.
       g.gain.setValueAtTime(Math.max(0.0001, g.gain.value), t);
       g.gain.exponentialRampToValueAtTime(0.0001, t + out);
       try { source.stop(t + out + 0.01); } catch (_) {}
+      try { unregister?.(); } catch (_) {}
     }
   };
   sustained.set(id, handle);

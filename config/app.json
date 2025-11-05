@@ -71,7 +71,7 @@
     { "id": "boiling_water", "file": "boiling_water.ogg", "visual": "bubbleField", "bus": "beds", "gain": 0.9, "fadeInMs": 10, "fadeOutMs": 10 },
     { "id": "microwave", "file": "microwave.ogg", "visual": "microwaveGrid", "bus": "fx", "gain": 0.9, "fadeInMs": 10, "fadeOutMs": 10 },
     { "id": "tap", "file": "tap.ogg", "visual": "rippleEmitter", "bus": "beds", "gain": 0.9, "fadeInMs": 10, "fadeOutMs": 10 },
-    { "id": "fridge", "file": "fridge.ogg", "visual": "vortexSpiral", "bus": "fx", "gain": 0.9, "fadeInMs": 10, "fadeOutMs": 10 },
+    { "id": "fridge", "file": "fridge.ogg", "visual": "fridgeDrop", "bus": "fx", "gain": 0.9, "fadeInMs": 10, "fadeOutMs": 10, "gate": { "thresholdDb": -20, "attackMs": 15, "releaseMs": 150, "minIntervalMs": 90 } },
     { "id": "chopping", "file": "chopping.ogg", "visual": "sparkLine", "bus": "fx", "gain": 0.9, "fadeInMs": 10, "fadeOutMs": 10 },
     { "id": "cutting_things", "file": "cutting_things.ogg", "visual": "pulseStrokes", "bus": "fx", "gain": 0.9, "fadeInMs": 10, "fadeOutMs": 10 },
     { "id": "glass_stirring", "file": "glass_stirring.ogg", "visual": "vortexSpiral", "bus": "fx", "gain": 0.9, "fadeInMs": 10, "fadeOutMs": 10 },

@@ -14,6 +14,7 @@ import { create as createSprayCone } from './factories/sprayCone.js';
 import { create as createSparkLine } from './factories/sparkLine.js';
 import { create as createCitrusSplash } from './factories/citrusSplash.js';
 import { create as createMicrowaveGrid } from './factories/microwaveGrid.js';
+import { create as createFridgeDrop } from './factories/fridgeDrop.js';
 
 const registry = {
   heatRing: createHeatRing,
@@ -32,6 +33,7 @@ const registry = {
   ,sparkLine: createSparkLine
   ,citrusSplash: createCitrusSplash
   ,microwaveGrid: createMicrowaveGrid
+  ,fridgeDrop: createFridgeDrop
 };
 
 export function createFactory(name, params, ctx) {
