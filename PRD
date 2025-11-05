@@ -52,8 +52,8 @@ PRD: Kitchen Chaos A/V Story (Web)
 - Accidents and alarms are included as cues within state sequences.
 
 5.1 Per-state sound programming (current build)
-- Preparing: `fridge`, `knife_sharpen` (drag), `chopping`, `cutting_things`, `squeeze_juice` (hold), `tap`, `bag_rustling`
-- Cooking: `lighter`, `stove` (looped), `stove_fire`, `hissing_pan` (looped, requires `stoveOn`), `water_pour` (drag), `glass_stirring` (hold), `cooking_spray` (hold), `microwave`, `glass_clink`, `boiling_water` (looped, requires `stoveOn`)
+- Preparing: `fridge`, `knife_sharpen`, `chopping`, `cutting_things`, `squeeze_juice`, `tap`, `bag_rustling`
+- Cooking: `lighter`, `stove` (looped), `stove_fire`, `hissing_pan` (looped, requires `stoveOn`), `water_pour`, `glass_stirring`, `cooking_spray`, `microwave`, `glass_clink`, `boiling_water` (looped, requires `stoveOn`)
 - Accident Breakout: `clatter`, `pot_falling`, `objects_falling`, `thump`
 - Chaos: `fire_alarm` (looped), `clatter`, `pot_falling`, `thump`
   - During Chaos, the FX bus delay wet mix ramps up gradually across the state (approx. 0.1 → 0.9 over ~30 s) creating an increasingly echoic space.
@@ -74,17 +74,28 @@ PRD: Kitchen Chaos A/V Story (Web)
 - Shared visual API (factory output):
   - create(params) → { id, update(dt), setPosition(x,y), getPosition(), destroy(), object3D }
   - Visuals must source colors exclusively from the global palette.
-- Updated mappings (gate-triggered visuals):
-  - fridge: fridgeDrop; spawns multiple larger shapes (triangle/ring/rectangle/circle), falling from above with bounce then rest; colors from palette; opacity ≈ 0.8; maintains a pool of resting shapes for cross-effects.
-  - knife_sharpen: knifeStripe; a white stripe sweeps left→right across screen at random y; fades in/out per gate trigger.
-  - chopping: chopStripe; vertical white stripe falls; landing x targets a random resting fridge shape; upon landing, both stripe and target shape fade out.
-  - cutting_things: cutStripe; same as chopStripe but faster fall.
+- Updated mappings (current build):
+  - fridge → fridgeDrop (randomized orientation on spawn; bounce to rest pool)
+  - bag_rustling → bagRustleSides (spawn from top-left/right with inward velocity; random rotation)
+  - lighter → blinkOverlay (full-canvas blink on gate; auto fade)
+  - stove, stove_fire → redSpectrogram (steady red spectrum; fades after silence)
+  - hissing_pan → redFilterOverlay (full-canvas red filter to opacity ~0.2)
+  - water_pour → waterPourStream (continuous stream at pointer while active; clears juice stains)
+  - glass_stirring → glassArcSpinner (white arcs around canvas center; each fades after ~3 revolutions)
+  - cooking_spray → whiteSprayDroplets (fast white droplets; persist until `spray:clear`)
+  - microwave → microwaveSineWaves (lavender thin horizontal sines moving in opposite directions; fades after silence)
+  - glass_clink → glassClinkRings (large skyBlue rings on gate; persist until `clink:clear`)
+  - boiling_water → boilingVerticalSine (fixed-parameter vertical white sines; upward motion via phase progression only)
+  - tap → tapWaterSpectrogram (steady blue spectrum at bottom + water stream)
+  - squeeze_juice → juiceDroplets (z-axis droplets toward canvas; center-biased impacts; persist until `juice:clear`)
+  - fire_alarm → flashingCircularSpectrogram (unchanged)
+  - accidents (clatter/pot_falling/objects_falling/thump) → accidentBursts (unchanged)
 - Coordinate mapping: pointer (0..1) normalized → pixel space; y is inverted so DOM top maps to screen top; orthographic camera uses pixel units.
 
 7.1) Gate trigger mechanism
 - Each playing sound registers an analyser tap; short-term RMS is computed with attack/release smoothing and hysteresis.
 - Per-sound gate thresholds live in config/app.json under each sound's `gate` field (e.g., `{ "thresholdDb": -30, "attackMs": 15, "releaseMs": 150, "minIntervalMs": 90 }`).
-- On threshold crossing (with debounce), a `gate:hit` event triggers associated visuals; continuous `gate:level` events expose current RMS for debugging.
+- On threshold crossing (with debounce), a `gate:hit` event triggers associated visuals; continuous `gate:level` events expose current RMS for debugging. Some visuals listen for custom clear signals emitted elsewhere: `juice:clear`, `spray:clear`, `clink:clear`.
 
 8) Audio model
 - Defaults: gain 0 dB, playbackRate 1.0, fadeIn 15 ms, fadeOut 30 ms (short fades to avoid clicks; does not affect one-shot length noticeably).
@@ -139,22 +150,7 @@ PRD: Kitchen Chaos A/V Story (Web)
 - Include a monotonically increasing event id and session id; include current state in each log.
 
 16) Remaining sounds without newly rewritten visuals
-- Current build has new visuals for: fridge, knife_sharpen, chopping, cutting_things.
-- The following still use existing visuals and are candidates for future rewrites (gate-driven or otherwise):
-  - water_pour (ribbonWave)
-  - fire_alarm (flashingCircularSpectrogram)
-  - bag_rustling (polygonWrinkle)
-  - glass_clink (starburstShards)
-  - lighter (flareHeat)
-  - stove (heatRing; sustained)
-  - hissing_pan (steamParticles; sustained)
-  - boiling_water (bubbleField; sustained)
-  - microwave (microwaveGrid)
-  - tap (rippleEmitter)
-  - glass_stirring (vortexSpiral; hold)
-  - squeeze_juice (citrusSplash; hold)
-  - stove_fire (flareHeat)
-  - clatter / pot_falling / objects_falling / thump (accidentBursts)
+- All primary sounds now have updated visuals as listed in section 7. No pending rewrites at this time.
 
 14) Acceptance criteria
 - Audio panning matches visual x within one animation frame latency.
@@ -172,7 +168,7 @@ PRD: Kitchen Chaos A/V Story (Web)
 
 15.2 Implementation notes
 - Path resolution: All asset paths use absolute paths from server root (e.g., `/assets/audio/stove.ogg`).
-- Visual factories implemented: heatRing, ribbonWave, accidentBursts, flashingCircularSpectrogram, pulseStrokes, polygonWrinkle, starburstShards, flareHeat, steamParticles, bubbleField, rippleEmitter, vortexSpiral, sprayCone, sparkLine, citrusSplash, microwaveGrid.
+- Visual factories implemented (current): heatRing, accidentBursts, flashingCircularSpectrogram, pulseStrokes, polygonWrinkle, starburstShards, flareHeat, steamParticles, bubbleField, vortexSpiral, sparkLine, microwaveGrid, fridgeDrop, knifeStripe, chopStripe, cutStripe, ribbonWave, rippleEmitter, sprayCone, citrusSplash, microwaveSineWaves, glassClinkRings, boilingVerticalSine, redSpectrogram, redFilterOverlay, blinkOverlay, bagRustleSides, waterPourStream, glassArcSpinner, whiteSprayDroplets, tapWaterSpectrogram, juiceDroplets.
 - Sound mapping: Each sound entry in config includes: id, file, visual, bus. Behavior is determined by `sequence` actions.
 
 Example minimal schema:

@@ -226,7 +226,7 @@ setPrompt('');
     });
     // Preload and decode all audio buffers
     try {
-      await preloadAllBuffers(audio, cfg?.sounds || [], { basePath: '/assets/audio/' });
+      await preloadAllBuffers(audio, cfg?.sounds || [], { basePath: './assets/audio/' });
       buffersReady = true;
       log('app:assets_loaded', {});
     } catch (err) {
