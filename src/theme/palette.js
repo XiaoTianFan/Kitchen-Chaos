@@ -5,7 +5,7 @@ export const palette = {
   foreground: '#1c1b13', // dark brown
   white: '#f2f1df',
   skyBlue: '#63f2cc',
-  seaBlue: '#5724d6',
+  seaBlue: '#2442d6',
   red: '#db2b3a',
   green: '#39c450',
   orange: '#eb8016',

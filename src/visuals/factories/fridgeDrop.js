@@ -1,13 +1,14 @@
 import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
 import { gateBus } from '../../audio/gateBus.js';
 import { pickFridgeColors } from '../../theme/palette.js';
+import { fridgePool } from '../state/fridgePool.js';
 
 export function create(params = {}, ctx = {}) {
   const group = new THREE.Group();
   const colors = pickFridgeColors();
   const opacity = 0.8;
 
-  const bodies = []; // { mesh, x,y, z, vx,vy, size, atRest, parallax }
+  const bodies = []; // { id, mesh, x,y, z, vx,vy, size, atRest, parallax, fadeOut }
   const gravity = params.gravity ?? 900; // px/s^2, y-up coordinate
   const restitution = params.restitution ?? 0.35;
   const bottomY = 0;
@@ -65,7 +66,8 @@ export function create(params = {}, ctx = {}) {
       const vy = (-50 - Math.random() * 120) * parallax; // initial downward velocity
       mesh.position.set(x, y, z);
       group.add(mesh);
-      bodies.push({ mesh, x, y, z, vx, vy, size, atRest: false, parallax });
+      const id = `f_${Date.now().toString(36)}_${Math.random().toString(36).slice(2,6)}`;
+      bodies.push({ id, mesh, x, y, z, vx, vy, size, atRest: false, parallax, fadeOut: false });
     }
   }
 
@@ -101,9 +103,31 @@ export function create(params = {}, ctx = {}) {
           // Sleep when energy is low
           if (Math.abs(b.vy) < 10 && Math.abs(b.vx) < 5) {
             b.vy = 0; b.vx = 0; b.atRest = true;
+            // When coming to rest, register in shared pool
+            try {
+              fridgePool.add(b.id, {
+                getX: () => b.x,
+                requestFadeOut: () => { b.fadeOut = true; },
+              });
+            } catch (_) {}
           }
         }
         b.mesh.position.set(b.x, b.y, b.z);
+      }
+      // Handle fade-outs and prune removed bodies
+      for (let i = bodies.length - 1; i >= 0; i--) {
+        const b = bodies[i];
+        if (b.fadeOut) {
+          const m = b.mesh.material;
+          if (m && typeof m.opacity === 'number') {
+            m.opacity = Math.max(0, m.opacity - 1.5 * dtSec);
+          }
+          if (!m || m.opacity <= 0.01) {
+            try { fridgePool.remove(b.id); } catch (_) {}
+            try { b.mesh.removeFromParent(); } catch (_) {}
+            bodies.splice(i, 1);
+          }
+        }
       }
     },
     setPosition(nx, ny) { px = nx; py = ny; },

@@ -65,28 +65,26 @@ PRD: Kitchen Chaos A/V Story (Web)
 - Cues may optionally include simple conditions (e.g., `if: { "stoveOn": true }`).
 - The sequencer does not skip ahead on mismatched input or unmet conditions.
 
-7) Visual language (candy pastels; examples and parameters)
+7) Visual system (palette, factories, mappings)
+- Global palette (src/theme/palette.js):
+  - background: #e8cb6d (vanilla yellow)
+  - foreground: #1c1b13 (dark brown)
+  - white: #f2f1df; skyBlue: #63f2cc; seaBlue: #5724d6; red: #db2b3a; green: #39c450; orange: #eb8016; lavendar: #ab2bc4
+- Renderer background: Three.js scene background uses palette.background for high contrast.
 - Shared visual API (factory output):
-  - create(params) → { id, setParams(newParams), update(audioData, dt), setPosition(x,y), getPosition(), destroy() }
-  - Common params: colorA/B, size, lifespanMs, spawnJitter, orbitRadius, speed, angle, bandLowHz, bandHighHz, responseGain, opacity, blendMode, strokeWidth.
-- Mappings per sound
-  - water pour: ribbonWave; blue/aqua ribbon traveling down; amplitude from 200–800 Hz band; follows drag path; lifespan short (1–2 s).
-  - fire alarm: flashingCircularSpectrogram; red pastel; flash 4 Hz; orbits canvas center with small jitter; radius modulated by overall RMS; moves during Chaos.
-  - chopping/cutting: pulseStrokes; white pulses at pointer, stroke width from onset strength; lifespan 300–500 ms.
-  - bag rustling: polygonWrinkle; quick crumple near cursor; 400–600 ms.
-  - glass clink: starburstShards; crystalline burst; 500–800 ms.
-  - lighter: flare + heat shimmer; 300–500 ms.
-  - stove: heatRing + shimmer; ring intensity from RMS; static at spawn x.
-  - hissing_pan: steamParticles; emission rate from high bands; stationary.
-  - boiling_water: bubbleField; bubble size from 150–500 Hz; stationary.
-  - tap: rippleEmitter; ripples expand; low-mid energy drives amplitude.
-  - glass stirring: vortexSpiral; swirl rate from pointer angular velocity; sustained while held.
-  - cooking spray: sprayCone; particle density from RMS; sustained while held.
-  - knife sharpen: sparkLine; spark rate from mid-high band.
-  - juicing: citrusSplash; droplets outward; sustained while held.
-  - microwave: microwaveGrid; pulsing squares; one-shot visual matching sample length.
-  - clatter/objects falling/pot falling/thump: accidents; screen shake + bursts; random positions; 500–1200 ms visuals.
-  - stove_fire: brief flareHeat burst from burner; 200–400 ms.
+  - create(params) → { id, update(dt), setPosition(x,y), getPosition(), destroy(), object3D }
+  - Visuals must source colors exclusively from the global palette.
+- Updated mappings (gate-triggered visuals):
+  - fridge: fridgeDrop; spawns multiple larger shapes (triangle/ring/rectangle/circle), falling from above with bounce then rest; colors from palette; opacity ≈ 0.8; maintains a pool of resting shapes for cross-effects.
+  - knife_sharpen: knifeStripe; a white stripe sweeps left→right across screen at random y; fades in/out per gate trigger.
+  - chopping: chopStripe; vertical white stripe falls; landing x targets a random resting fridge shape; upon landing, both stripe and target shape fade out.
+  - cutting_things: cutStripe; same as chopStripe but faster fall.
+- Coordinate mapping: pointer (0..1) normalized → pixel space; y is inverted so DOM top maps to screen top; orthographic camera uses pixel units.
+
+7.1) Gate trigger mechanism
+- Each playing sound registers an analyser tap; short-term RMS is computed with attack/release smoothing and hysteresis.
+- Per-sound gate thresholds live in config/app.json under each sound's `gate` field (e.g., `{ "thresholdDb": -30, "attackMs": 15, "releaseMs": 150, "minIntervalMs": 90 }`).
+- On threshold crossing (with debounce), a `gate:hit` event triggers associated visuals; continuous `gate:level` events expose current RMS for debugging.
 
 8) Audio model
 - Defaults: gain 0 dB, playbackRate 1.0, fadeIn 15 ms, fadeOut 30 ms (short fades to avoid clicks; does not affect one-shot length noticeably).
@@ -99,6 +97,9 @@ PRD: Kitchen Chaos A/V Story (Web)
 - Build-ups: sustained loops (boiling/hissing) can ramp gain over 1–3 s on start.
 - Concurrency: no hard cap; rely on compressor/limiter to prevent clipping.
 - Audio unlock: create/resume AudioContext on first user interaction; preload decode all buffers.
+
+8.1) Debugging aids
+- Gate loudness overlay: a small top-left UI shows per-sound RMS and dB (hidden from a11y). Enabled when debug is true.
 
 9) Accidents
 - Accidents (`clatter`, `pot_falling`, `objects_falling`, `thump`) are sequenced as cues within Accident Breakout and Chaos. No background scheduler.
@@ -132,8 +133,28 @@ PRD: Kitchen Chaos A/V Story (Web)
   - state:goto {to, from}
   - user:action {type, x, y}
   - sound:play|start|stop|toggle {id, action, state, index}
+  - gate:hit {soundId, rms}
+  - gate:level {soundId, rms}
   - error:{code,msg}
 - Include a monotonically increasing event id and session id; include current state in each log.
+
+16) Remaining sounds without newly rewritten visuals
+- Current build has new visuals for: fridge, knife_sharpen, chopping, cutting_things.
+- The following still use existing visuals and are candidates for future rewrites (gate-driven or otherwise):
+  - water_pour (ribbonWave)
+  - fire_alarm (flashingCircularSpectrogram)
+  - bag_rustling (polygonWrinkle)
+  - glass_clink (starburstShards)
+  - lighter (flareHeat)
+  - stove (heatRing; sustained)
+  - hissing_pan (steamParticles; sustained)
+  - boiling_water (bubbleField; sustained)
+  - microwave (microwaveGrid)
+  - tap (rippleEmitter)
+  - glass_stirring (vortexSpiral; hold)
+  - squeeze_juice (citrusSplash; hold)
+  - stove_fire (flareHeat)
+  - clatter / pot_falling / objects_falling / thump (accidentBursts)
 
 14) Acceptance criteria
 - Audio panning matches visual x within one animation frame latency.
