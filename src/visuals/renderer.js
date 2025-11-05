@@ -25,6 +25,9 @@ export class Renderer {
     this.scene.add(this.heartbeat);
     this.visuals = new Set();
 
+    // fade-out state for end-of-sequence clearing
+    this._fade = null; // { t, dur, targets: [ { material, orig } ] }
+
     // camera/scene shake state
     this._shakeT = 0;      // seconds remaining
     this._shakeDur = 0.001; // seconds total of current shake
@@ -44,6 +47,9 @@ export class Renderer {
 
     // initialize subtle kitchen grid behind visuals
     this._initGrid();
+
+    // center text prompt (sprite)
+    this.centerTextSprite = null;
   }
 
   resize(pixelWidth, pixelHeight, dpr) {
@@ -61,6 +67,11 @@ export class Renderer {
 
     // update grid to match new canvas size
     this._updateGridPlane();
+
+    // re-center prompt if present
+    if (this.centerTextSprite) {
+      this.centerTextSprite.position.set(w * 0.5, h * 0.5, 9);
+    }
   }
 
   render(tSec, dtSec) {
@@ -84,6 +95,27 @@ export class Renderer {
       try { v.update?.(null, dt); } catch (_) {}
       if (v && (v.alive === false || !v.object3D || !v.object3D.parent)) {
         this.removeVisual(v);
+      }
+    }
+    // Apply global fade of all non-grid objects when requested
+    if (this._fade && this._fade.dur > 0) {
+      this._fade.t = Math.min(this._fade.dur, (this._fade.t + dt));
+      const k = Math.max(0, 1 - (this._fade.t / this._fade.dur));
+      for (const tgt of this._fade.targets || []) {
+        try {
+          const m = tgt.material;
+          if (!m) continue;
+          m.transparent = true;
+          const base = (typeof tgt.orig === 'number' ? tgt.orig : 1);
+          m.opacity = Math.max(0, Math.min(1, base * k));
+          m.needsUpdate = true;
+        } catch (_) {}
+      }
+      if (this._fade.t >= this._fade.dur) {
+        // fade complete: clear visuals and remove transient meshes, keep grid/background
+        try { this.clearAllVisuals(); } catch (_) {}
+        try { this.heartbeat?.removeFromParent?.(); } catch (_) {}
+        this._fade = null;
       }
     }
     this.renderer.render(this.scene, this.camera);
@@ -186,5 +218,66 @@ Renderer.prototype._hexToRgb = function _hexToRgb(hex) {
   const b = num & 255;
   /* eslint-enable no-bitwise */
   return { r, g, b };
+};
+
+Renderer.prototype.fadeOutNonGrid = function fadeOutNonGrid(durationSec) {
+  const dur = Math.max(0.001, Number.isFinite(durationSec) ? durationSec : 3.0);
+  const targets = [];
+  try {
+    this.scene.traverse((obj) => {
+      if (!obj || obj === this.gridPlane) return;
+      // collect materials from meshes
+      const mat = obj.material;
+      if (Array.isArray(mat)) {
+        for (const m of mat) {
+          if (m && typeof m.opacity === 'number') targets.push({ material: m, orig: m.opacity });
+        }
+      } else if (mat && typeof mat.opacity === 'number') {
+        targets.push({ material: mat, orig: mat.opacity });
+      }
+    });
+  } catch (_) {}
+  this._fade = { t: 0, dur, targets };
+};
+
+Renderer.prototype.showCenterText = function showCenterText(text, opacity) {
+  try {
+    const msg = String(text || '').trim() || 'Click Anywhere to Start Cooking';
+    const alpha = Math.max(0, Math.min(1, Number.isFinite(opacity) ? opacity : 0.75));
+    const c = document.createElement('canvas');
+    c.width = 1600; c.height = 300;
+    const ctx = c.getContext('2d');
+    ctx.clearRect(0, 0, c.width, c.height);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = 'bold 112px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,1)';
+    ctx.fillText(msg, c.width * 0.5, c.height * 0.5);
+
+    const tex = new THREE.CanvasTexture(c);
+    tex.needsUpdate = true;
+    const mat = new THREE.SpriteMaterial({ map: tex, color: new THREE.Color(palette.foreground), transparent: true, opacity: alpha, depthTest: false, depthWrite: false });
+    const spr = new THREE.Sprite(mat);
+    spr.center.set(0.5, 0.5);
+    spr.scale.set(c.width, c.height, 1);
+    spr.position.set(this.width * 0.5, this.height * 0.5, 9);
+    spr.renderOrder = 9999;
+
+    if (this.centerTextSprite) {
+      try { this.centerTextSprite.material.map?.dispose?.(); } catch (_) {}
+      try { this.centerTextSprite.material?.dispose?.(); } catch (_) {}
+      try { this.centerTextSprite.removeFromParent(); } catch (_) {}
+    }
+    this.centerTextSprite = spr;
+    this.scene.add(spr);
+  } catch (_) {}
+};
+
+Renderer.prototype.hideCenterText = function hideCenterText() {
+  if (!this.centerTextSprite) return;
+  try { this.centerTextSprite.material.map?.dispose?.(); } catch (_) {}
+  try { this.centerTextSprite.material?.dispose?.(); } catch (_) {}
+  try { this.centerTextSprite.removeFromParent(); } catch (_) {}
+  this.centerTextSprite = null;
 };
 

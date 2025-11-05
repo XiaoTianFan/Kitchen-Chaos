@@ -21,6 +21,8 @@ const promptEl = document.getElementById('prompt');
 const canvas = document.getElementById('scene');
 const gateDebugEl = document.getElementById('gate-debug');
 if (gateDebugEl) gateDebugEl.textContent = 'gate levels: —';
+// Hide legacy grey overlay at boot; we render prompt on-canvas instead
+overlay?.classList.add('hidden');
 
 let rafId = 0;
 let started = false;
@@ -34,6 +36,8 @@ let sounds = null;
 let sequencer = null;
 let appConfig = null;
 let chaosCutDone = false;
+let chaosCutTimeoutId = null;
+let chaosLastCueTriggeredAt = 0;
 
 function setPrompt(text) {
   setPromptText(text);
@@ -73,12 +77,7 @@ function frame(ts) {
     const wet = 0.1 + 0.8 * k; // start subtle, grow to strong
     try { audio.setFxDelayWetMix(wet, 0.25); } catch (_) {}
   }
-  // Chaos end: after 30s in Chaos, cut audio abruptly (visuals handled later)
-  if (fsm && fsm.state === 'Chaos' && fsm.tState >= 30 && !chaosCutDone) {
-    try { audio?.stopAll?.(); } catch (_) {}
-    log('audio:chaos_cut', { tState: fsm.tState });
-    chaosCutDone = true;
-  }
+  // (Old 30s Chaos cutoff removed; cutoff now scheduled 10s after last Chaos cue.)
   drawPlaceholder(now, dtSec);
   rafId = requestAnimationFrame(frame);
 }
@@ -87,6 +86,7 @@ function start() {
   if (started) return;
   started = true;
   overlay?.classList.add('hidden');
+  try { renderer?.hideCenterText?.(); } catch (_) {}
   // If config loaded, pull prompt from Preparing state's enterActions
   try {
     if (configLoaded) {
@@ -175,6 +175,20 @@ overlay?.addEventListener('touchstart', handleFirstInteraction, { passive: true 
 // Initial layout
 resize();
 setPrompt('');
+// Initialize renderer immediately so canvas is visible before interaction
+try {
+  if (!renderer && canvas) {
+    renderer = new Renderer(canvas);
+    const dpr0 = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+    renderer.resize(canvas.width, canvas.height, dpr0);
+    renderer.showCenterText('Click Anywhere to Start Cooking', 0.75);
+  }
+} catch (_) {}
+// Start a lightweight render loop before audio unlock
+try {
+  cancelAnimationFrame(rafId);
+  rafId = requestAnimationFrame(frame);
+} catch (_) {}
 
 // Load configuration early
 (async () => {
@@ -213,8 +227,10 @@ setPrompt('');
     }
     fsm.setHooks({
       onEnter: ({ state }) => {
-        // reset chaos cut flag on each state entry
+        // reset chaos ending scheduling on each state entry
         chaosCutDone = false;
+        if (chaosCutTimeoutId) { try { clearTimeout(chaosCutTimeoutId); } catch (_) {} chaosCutTimeoutId = null; }
+        chaosLastCueTriggeredAt = 0;
         try {
           const st = (cfg.fsm?.states || []).find(s => s?.name === state);
           const prompt = st?.enterActions?.find(a => a?.type === 'uiPrompt')?.text;
@@ -232,8 +248,10 @@ setPrompt('');
     } catch (err) {
       console.warn('[audio] buffer preload failed', err);
     }
-    // Visual renderer
-    renderer = new Renderer(canvas);
+    // Visual renderer (ensure exists; may be initialized earlier)
+    if (!renderer) {
+      renderer = new Renderer(canvas);
+    }
     const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
     renderer.resize(canvas.width, canvas.height, dpr);
     // Update sequencer with renderer reference
