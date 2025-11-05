@@ -54,7 +54,7 @@ export function create(params = {}, ctx = {}) {
   const H = ctx.height || 1;
   const bands = Math.max(48, Math.min(192, params.bands || 128)); // finer resolution
   const barWidth = Math.max(1, W / bands);
-  const barMaxHeight = Math.max(12, Math.min(220, (H * 0.35))); // taller max height
+  const barMaxHeight = Math.max(12, Math.min(400, (H * 0.6))); // increased max height
   const bars = []; // { mesh, height }
 
   for (let i = 0; i < bands; i++) {
@@ -89,6 +89,18 @@ export function create(params = {}, ctx = {}) {
   let ampFiltered = 0;
   const ampLerpSeconds = 0.2;
 
+  // Spectrum from gate service (20–18k Hz, typically 128 bands)
+  let lastSpectrum = null; // Float32Array 0..1
+  function onTapSpectrum(e) {
+    const { soundId, spectrum } = e.detail || {};
+    if (soundId !== 'tap' || !spectrum) return;
+    lastSpectrum = spectrum;
+    // fresh energy implies not fading
+    const now = (e.detail && typeof e.detail.t === 'number') ? e.detail.t : (performance.now ? performance.now() : Date.now());
+    lastLevelAt = now;
+    fading = false;
+  }
+
   function onTapGateLevel(e) {
     const { soundId, rms } = e.detail || {};
     if (soundId !== 'tap') return;
@@ -102,6 +114,7 @@ export function create(params = {}, ctx = {}) {
 
   gateBus.addEventListener('gate:hit', onTapGateHit);
   gateBus.addEventListener('gate:level', onTapGateLevel);
+  gateBus.addEventListener('gate:spectrum', onTapSpectrum);
 
   let alive = true;
   let px = 0, py = 0;
@@ -126,15 +139,22 @@ export function create(params = {}, ctx = {}) {
         }
       }
 
-      // Update spectrogram bars with smoothing; only filtered amp
+      // Update spectrogram bars: prefer spectrum, fallback to filtered amp
       const rise = 4.0 * dtSec;  // slower rise for steadiness
       const fall = 3.0 * dtSec;  // slower fall
       const fadeK = fading ? (1 - Math.min(1, fadeT / fadeDur)) : 1;
       for (let i = 0; i < bars.length; i++) {
         const b = bars[i];
-        // slight high-band emphasis
-        const bandEmph = 0.6 + 0.4 * (i / (bars.length - 1));
-        const t = 4 + (barMaxHeight * ampFiltered * bandEmph);
+        let magnitude = ampFiltered;
+        if (lastSpectrum && lastSpectrum.length) {
+          const j = Math.min(lastSpectrum.length - 1, Math.floor(i * lastSpectrum.length / bars.length));
+          magnitude = Math.max(0, Math.min(1, lastSpectrum[j]));
+        } else {
+          // slight high-band emphasis when spectrum not yet available
+          const bandEmph = 0.6 + 0.4 * (i / (bars.length - 1));
+          magnitude = Math.max(0, Math.min(1, ampFiltered * bandEmph));
+        }
+        const t = 4 + (barMaxHeight * magnitude);
         const h = b.height;
         let nh = h;
         if (t > h) nh = Math.min(t, h + Math.max(1, barMaxHeight * rise));
@@ -176,6 +196,7 @@ export function create(params = {}, ctx = {}) {
       alive = false;
       gateBus.removeEventListener('gate:hit', onTapGateHit);
       gateBus.removeEventListener('gate:level', onTapGateLevel);
+        gateBus.removeEventListener('gate:spectrum', onTapSpectrum);
       group.removeFromParent();
     },
     get alive() { return alive; }

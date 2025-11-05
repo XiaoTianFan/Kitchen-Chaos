@@ -16,7 +16,7 @@ export function create(params = {}, ctx = {}) {
   const H = ctx.height || 1;
   const bands = Math.max(48, Math.min(192, params.bands || 128));
   const barWidth = Math.max(1, W / bands);
-  const barMaxHeight = Math.max(12, Math.min(220, (H * 0.35)));
+  const barMaxHeight = Math.max(12, Math.min(400, (H * 0.6)));
   const bars = [];
   for (let i = 0; i < bands; i++) {
     const geo = new THREE.PlaneGeometry(Math.max(1, barWidth * 0.9), 2);
@@ -43,7 +43,19 @@ export function create(params = {}, ctx = {}) {
     fading = false;
   }
 
+  // Spectrum input (20–18k Hz)
+  let lastSpectrum = null; // Float32Array 0..1
+  function onSpectrum(e) {
+    const { soundId, spectrum } = e.detail || {};
+    if ((soundId !== 'stove' && soundId !== 'stove_fire') || !spectrum) return;
+    lastSpectrum = spectrum;
+    const now = (e.detail && typeof e.detail.t === 'number') ? e.detail.t : (performance.now ? performance.now() : Date.now());
+    lastLevelAt = now; // treat as activity
+    fading = false;
+  }
+
   gateBus.addEventListener('gate:level', onGateLevel);
+  gateBus.addEventListener('gate:spectrum', onSpectrum);
 
   let alive = true;
   return {
@@ -62,8 +74,15 @@ export function create(params = {}, ctx = {}) {
       const fadeK = fading ? (1 - Math.min(1, fadeT / fadeDur)) : 1;
       for (let i = 0; i < bars.length; i++) {
         const b = bars[i];
-        const bandEmph = 0.6 + 0.4 * (i / (bars.length - 1));
-        const tH = 4 + (barMaxHeight * ampFiltered * bandEmph);
+        let magnitude = ampFiltered;
+        if (lastSpectrum && lastSpectrum.length) {
+          const j = Math.min(lastSpectrum.length - 1, Math.floor(i * lastSpectrum.length / bars.length));
+          magnitude = Math.max(0, Math.min(1, lastSpectrum[j]));
+        } else {
+          const bandEmph = 0.6 + 0.4 * (i / (bars.length - 1));
+          magnitude = Math.max(0, Math.min(1, ampFiltered * bandEmph));
+        }
+        const tH = 4 + (barMaxHeight * magnitude);
         const h = b.height; let nh = h;
         if (tH > h) nh = Math.min(tH, h + Math.max(1, barMaxHeight * rise));
         else nh = Math.max(2, h - Math.max(1, barMaxHeight * fall));
@@ -75,7 +94,7 @@ export function create(params = {}, ctx = {}) {
       if (fading) { fadeT += dtSec; if (fadeT >= fadeDur) { try { group.removeFromParent(); } catch (_) {} } }
     },
     setPosition() {}, getPosition() { return { x: 0, y: 0 }; },
-    destroy() { alive = false; gateBus.removeEventListener('gate:level', onGateLevel); group.removeFromParent(); },
+    destroy() { alive = false; gateBus.removeEventListener('gate:level', onGateLevel); gateBus.removeEventListener('gate:spectrum', onSpectrum); group.removeFromParent(); },
     get alive() { return alive; }
   };
 }

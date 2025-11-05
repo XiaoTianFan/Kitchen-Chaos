@@ -11,13 +11,21 @@ import { FSM } from './fsm.js';
 import { Renderer } from './visuals/renderer.js';
 import { initLogging, log } from './logging.js';
 import { SoundManager } from './audio/soundManager.js';
+import { stopAllSustained } from './audio/sounds.js';
 import { createFactory } from './visuals/registry.js';
 import { Sequencer } from './sequencer.js';
 import { gateBus } from './audio/gateBus.js';
 
 const canvas = document.getElementById('scene');
 const gateDebugEl = document.getElementById('gate-debug');
-if (gateDebugEl) gateDebugEl.textContent = 'gate levels: —';
+if (gateDebugEl) {
+  gateDebugEl.textContent = 'gate levels: —';
+  try {
+    gateDebugEl.addEventListener('click', () => {
+      gateDebugEl.classList.toggle('expanded');
+    });
+  } catch (_) {}
+}
 
 let rafId = 0;
 let started = false;
@@ -33,6 +41,7 @@ let appConfig = null;
 let chaosCutDone = false;
 let chaosCutTimeoutId = null;
 let promptTimeoutId = null;
+let awaitingRetry = false;
 
 function blinkSequence(times, durationMs, onDone) {
   const n = Math.max(0, times | 0);
@@ -60,6 +69,35 @@ function setPrompt(text) {
   promptTimeoutId = setTimeout(() => {
     try { renderer?.fadeInCenterText?.(text, 0.7, 0.9); } catch (_) {}
   }, 2500);
+}
+
+function resetToPreparing() {
+  try { if (promptTimeoutId) { clearTimeout(promptTimeoutId); promptTimeoutId = null; } } catch (_) {}
+  try { if (chaosCutTimeoutId) { clearTimeout(chaosCutTimeoutId); chaosCutTimeoutId = null; } } catch (_) {}
+  chaosCutDone = false;
+  awaitingRetry = false;
+  // reset FSM meters
+  try {
+    if (fsm) {
+      fsm.heat = 0; fsm.taskLoad = 0; fsm.accidentsCount = 0; fsm.setStove(false);
+    }
+  } catch (_) {}
+  // stop all audio cleanly and restore mixer to defaults
+  try { stopAllSustained({ fadeOutMs: 80 }); } catch (_) {}
+  try { audio?.stopAll?.(); } catch (_) {}
+  try { audio?.resetToDefaults?.(0.25); } catch (_) {}
+  try { renderer?.clearAllVisuals?.(); } catch (_) {}
+  try { renderer?.hideCenterText?.(); } catch (_) {}
+  try { fsm?.goTo?.('Preparing', 'retry'); } catch (_) {}
+  try { sequencer?.resetForState?.('Preparing'); } catch (_) {}
+  try {
+    const cfg = getAppConfig();
+    const prep = (cfg.fsm?.states || []).find(s => s?.name === 'Preparing');
+    const prompt = prep?.enterActions?.find(a => a?.type === 'uiPrompt')?.text || 'Maybe light something…';
+    setPrompt(prompt);
+  } catch (_) {
+    setPrompt('Maybe light something…');
+  }
 }
 
 // Helper function to get visual effect name from config for a given sound ID
@@ -110,7 +148,12 @@ function frame(ts) {
             // Blink white 5 times, then fade out visuals, then fade in closing line
             blinkSequence(5, 200, () => {
               renderer?.fadeOutNonGrid?.(3.0, () => {
-                renderer?.fadeInCenterText?.("No worries... C'est la vie!", 1.5, 0.8);
+                renderer?.fadeInCenterText?.("No worries... C'est la vie!\nClick Anywhere to Retry", 1.5, 0.9);
+                awaitingRetry = true;
+                try {
+                  const onRetry = () => { if (awaitingRetry) resetToPreparing(); };
+                  window.addEventListener('pointerdown', onRetry, { once: true, passive: true });
+                } catch (_) {}
               });
             });
           } catch (_) {}
@@ -221,7 +264,7 @@ try {
     renderer = new Renderer(canvas);
     const dpr0 = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
     renderer.resize(canvas.width, canvas.height, dpr0);
-    renderer.showCenterText('Click Anywhere to Start Cooking', 0.75);
+    renderer.showCenterText('!Click Anywhere to Start Cooking!', 0.75);
   }
 } catch (_) {}
 // Start a lightweight render loop before audio unlock

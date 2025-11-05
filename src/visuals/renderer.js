@@ -303,19 +303,26 @@ Renderer.prototype.fadeInCenterText = function fadeInCenterText(text, durationSe
 
 Renderer.prototype.showCenterText = function showCenterText(text, opacity) {
   try {
-    const msg = String(text || '').trim() || 'Click Anywhere to Start Cooking';
+    const msg = String(text || '').trim() || '!Click Anywhere to Start Cooking!';
     const alpha = Math.max(0, Math.min(1, Number.isFinite(opacity) ? opacity : 0.75));
     const minDim = Math.max(1, Math.min(this.width, this.height));
     const fontPx = Math.max(16, Math.min(96, Math.floor(minDim * 0.06)));
     const padding = Math.floor(fontPx * 0.6);
 
+    // Support multi-line messages separated by \n
+    const lines = msg.split('\n').map(s => s.trim());
     const mcanvas = document.createElement('canvas');
     const mctx = mcanvas.getContext('2d');
-    mctx.font = `bold ${fontPx}px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif`;
-    const textW = Math.ceil(mctx.measureText(msg).width);
+    mctx.font = `400 ${fontPx}px "Barriecito", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif`;
+    let maxW = 0;
+    for (const ln of lines) {
+      const w = Math.ceil(mctx.measureText(ln).width);
+      if (w > maxW) maxW = w;
+    }
 
-    const baseW = textW + padding * 2;
-    const baseH = Math.ceil(fontPx * 1.4);
+    const baseW = maxW + padding * 2;
+    const lineH = Math.ceil(fontPx * 1.35);
+    const baseH = Math.max(2, Math.ceil(lineH * Math.max(1, lines.length)));
     const oversample = 2;
     const c = document.createElement('canvas');
     c.width = Math.max(2, baseW * oversample);
@@ -324,9 +331,14 @@ Renderer.prototype.showCenterText = function showCenterText(text, opacity) {
     ctx.clearRect(0, 0, c.width, c.height);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.font = `bold ${fontPx * oversample}px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif`;
+    ctx.font = `400 ${fontPx * oversample}px "Barriecito", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif`;
     ctx.fillStyle = 'rgba(255,255,255,1)';
-    ctx.fillText(msg, c.width * 0.5, c.height * 0.5);
+    // Draw each line vertically centered as a block
+    const totalLines = Math.max(1, lines.length);
+    for (let i = 0; i < totalLines; i++) {
+      const y = (c.height * 0.5) + ((i - (totalLines - 1) / 2) * lineH * oversample);
+      ctx.fillText(lines[i] || '', c.width * 0.5, y);
+    }
 
     const tex = new THREE.CanvasTexture(c);
     tex.needsUpdate = true;

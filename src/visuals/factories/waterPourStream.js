@@ -6,7 +6,7 @@ import { palette } from '../../theme/palette.js';
 export function create(params = {}, ctx = {}) {
   const group = new THREE.Group();
   const waterColor = new THREE.Color(params.color || palette.seaBlue);
-  const alpha = 0.85;
+  const alpha = 0.8;
 
   const W = ctx.width || 1; const H = ctx.height || 1;
   const waterGroup = new THREE.Group();
@@ -48,7 +48,7 @@ export function create(params = {}, ctx = {}) {
     const mat = new THREE.MeshBasicMaterial({ color: waterColor, transparent: true, opacity: alpha });
     mat.depthWrite = false; mat.depthTest = false;
     const m = new THREE.Mesh(geo, mat);
-    const xJ = (Math.random() - 0.5) * 28; // wider stream width
+    const xJ = (Math.random() - 0.5) * 96; // wider stream width
     m.position.set(originX + xJ, originY, 0);
     m.renderOrder = 120;
     waterGroup.add(m);

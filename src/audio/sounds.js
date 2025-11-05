@@ -115,6 +115,13 @@ export function stopSustained(id, { fadeOutMs } = {}) {
   }
 }
 
+export function stopAllSustained({ fadeOutMs } = {}) {
+  for (const [id, h] of Array.from(sustained.entries())) {
+    try { h.stop(fadeOutMs); } catch (_) {}
+    sustained.delete(id);
+  }
+}
+
 export function toggleSustained(id, opts) {
   if (sustained.has(id)) {
     stopSustained(id, opts || {});

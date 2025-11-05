@@ -5,9 +5,9 @@
     "states": [
       {
         "name": "Preparing",
-        "enterActions": [{ "type": "uiPrompt", "text": "Maybe light something." }],
+        "enterActions": [{ "type": "uiPrompt", "text": "Let's get something from the fridge." }],
         "sequence": [
-          { "action": "playOneShot", "sound": "fridge", "text": "Let’s sharpen the knife." },
+          { "action": "playOneShot", "sound": "fridge", "text": "Sharpen the knife, will you?" },
           { "action": "playOneShot", "sound": "knife_sharpen", "text": "Slice the veggies." },
           { "action": "playOneShot", "sound": "chopping", "text": "Chop a few things." },
           { "action": "playOneShot", "sound": "cutting_things", "text": "Squeeze some juice." },
@@ -19,40 +19,40 @@
       },
       {
         "name": "Cooking",
-        "enterActions": [{ "type": "uiPrompt", "text": "Multitasking is easy. Add more. More." }],
+        "enterActions": [{ "type": "uiPrompt", "text": "Be patient. Okay?" }],
         "sequence": [
           { "action": "playOneShot", "sound": "lighter", "text": "Turn on the stove." },
-          { "action": "playOneShot", "sound": "stove", "fsm": { "setStove": true }, "text": "Get the pan hissing." },
-          { "action": "startSustained", "sound": "stove_fire", "text": "Flames catch from the burner." },
+          { "action": "playOneShot", "sound": "stove", "fsm": { "setStove": true }, "text": "Fire! We need more fire!" },
+          { "action": "startSustained", "sound": "stove_fire", "text": "Get the pan hissing." },
           { "action": "startSustained", "sound": "hissing_pan", "if": { "stoveOn": true }, "text": "Pour in some water." },
           { "action": "playOneShot", "sound": "water_pour", "text": "Give the glass a stir." },
           { "action": "playOneShot", "sound": "glass_stirring", "text": "Spray the pan." },
           { "action": "playOneShot", "sound": "cooking_spray", "text": "Ping the microwave." },
-          { "action": "playOneShot", "sound": "microwave", "fsm": { "bumpMicrowave": true }, "text": "Get the glasses." },
+          { "action": "playOneShot", "sound": "microwave", "fsm": { "bumpMicrowave": true }, "text": "Get some plates." },
           { "action": "playOneShot", "sound": "glass_clink", "text": "Bring the water to a boil." },
-          { "action": "startSustained", "sound": "boiling_water", "if": { "stoveOn": true }, "text": "Here come the accidents." },
+          { "action": "startSustained", "sound": "boiling_water", "if": { "stoveOn": true }, "text": "Be careful! It's getting hot." },
           { "action": "gotoState", "to": "Accident Breakout" }
         ]
       },
       {
         "name": "Accident Breakout",
-        "enterActions": [{ "type": "uiPrompt", "text": "It’s fine. Totally fine." }],
+        "enterActions": [{ "type": "uiPrompt", "text": "Nothing is going to happen. Right?" }],
         "sequence": [
-          { "action": "playOneShot", "sound": "clatter", "text": "Something clatters behind you." },
-          { "action": "playOneShot", "sound": "pot_falling", "text": "Glass shatters somewhere." },
-          { "action": "playOneShot", "sound": "objects_falling", "text": "Multiple objects cascade down." },
-          { "action": "playOneShot", "sound": "thump", "text": "A heavy thump echoes." },
+          { "action": "playOneShot", "sound": "clatter", "text": "Shoot! What was that clatter?" },
+          { "action": "playOneShot", "sound": "pot_falling", "text": "Hold on tight! Don't let it fall." },
+          { "action": "playOneShot", "sound": "objects_falling", "text": "Can you still catch them?" },
+          { "action": "playOneShot", "sound": "thump", "text": "Ooops!" },
           { "action": "gotoState", "to": "Chaos" }
         ]
       },
       {
         "name": "Chaos",
-        "enterActions": [{ "type": "uiPrompt", "text": "Nailed it." }],
+        "enterActions": [{ "type": "uiPrompt", "text": "..." }],
         "sequence": [
-          { "action": "startSustained", "sound": "fire_alarm", "text": "The alarm blares overhead." },
-          { "action": "playOneShot", "sound": "clatter", "text": "Clatter intensifies." },
-          { "action": "playOneShot", "sound": "pot_falling", "text": "Another thing breaks." },
-          { "action": "playOneShot", "sound": "thump", "text": "Yet another thump." }
+          { "action": "startSustained", "sound": "fire_alarm", "text": "Okay. Here comes the fire alarm." },
+          { "action": "playOneShot", "sound": "clatter", "text": "How can we turn it off?" },
+          { "action": "playOneShot", "sound": "pot_falling", "text": "The pan!" },
+          { "action": "playOneShot", "sound": "thump", "text": "..." }
         ]
       }
     ]
@@ -72,11 +72,11 @@
     { "id": "microwave", "file": "microwave.ogg", "visual": "microwaveSineWaves", "bus": "fx", "gain": 0.9, "fadeInMs": 10, "fadeOutMs": 10, "gate": { "thresholdDb": -36, "attackMs": 10, "releaseMs": 140, "minIntervalMs": 60 } },
     { "id": "tap", "file": "tap.ogg", "visual": "tapWaterSpectrogram", "bus": "beds", "gain": 0.9, "fadeInMs": 10, "fadeOutMs": 10 },
     { "id": "fridge", "file": "fridge.ogg", "visual": "fridgeDrop", "bus": "fx", "gain": 0.9, "fadeInMs": 10, "fadeOutMs": 10, "gate": { "thresholdDb": -18, "attackMs": 15, "releaseMs": 150, "minIntervalMs": 90 } },
-    { "id": "chopping", "file": "chopping.ogg", "visual": "chopStripe", "bus": "fx", "gain": 0.9, "fadeInMs": 10, "fadeOutMs": 10, "gate": { "thresholdDb": -32, "attackMs": 12, "releaseMs": 140, "minIntervalMs": 80 } },
+    { "id": "chopping", "file": "chopping.ogg", "visual": "chopStripe", "bus": "fx", "gain": 1, "fadeInMs": 10, "fadeOutMs": 10, "gate": { "thresholdDb": -32, "attackMs": 12, "releaseMs": 140, "minIntervalMs": 80 } },
     { "id": "cutting_things", "file": "cutting_things.ogg", "visual": "cutStripe", "bus": "fx", "gain": 0.9, "fadeInMs": 10, "fadeOutMs": 10, "gate": { "thresholdDb": -38, "attackMs": 10, "releaseMs": 120, "minIntervalMs": 60 } },
     { "id": "glass_stirring", "file": "glass_stirring.ogg", "visual": "glassArcSpinner", "bus": "fx", "gain": 0.9, "fadeInMs": 10, "fadeOutMs": 10, "gate": { "thresholdDb": -34, "attackMs": 12, "releaseMs": 140, "minIntervalMs": 80 } },
     { "id": "knife_sharpen", "file": "knife_sharpen.ogg", "visual": "knifeStripe", "bus": "fx", "gain": 0.9, "fadeInMs": 10, "fadeOutMs": 10, "gate": { "thresholdDb": -28, "attackMs": 10, "releaseMs": 120, "minIntervalMs": 70 } },
-    { "id": "squeeze_juice", "file": "squeeze_juice.ogg", "visual": "juiceDroplets", "bus": "fx", "gain": 0.9, "fadeInMs": 10, "fadeOutMs": 10, "gate": { "thresholdDb": -40, "attackMs": 15, "releaseMs": 150, "minIntervalMs": 90 } },
+    { "id": "squeeze_juice", "file": "squeeze_juice.ogg", "visual": "juiceDroplets", "bus": "fx", "gain": 1, "fadeInMs": 10, "fadeOutMs": 10, "gate": { "thresholdDb": -40, "attackMs": 15, "releaseMs": 150, "minIntervalMs": 90 } },
     { "id": "hissing_pan", "file": "hissing_pan.ogg", "visual": "redFilterOverlay", "bus": "beds", "gain": 0.8, "fadeInMs": 10, "fadeOutMs": 10 },
     { "id": "stove_fire", "file": "stove_fire.ogg", "visual": "redSpectrogram", "bus": "fx", "gain": 0.75, "fadeInMs": 10, "fadeOutMs": 10, "gate": { "thresholdDb": -28, "attackMs": 12, "releaseMs": 140, "minIntervalMs": 80 } },
     { "id": "objects_falling", "file": "objects_falling.ogg", "visual": "objectsFallingBounce", "bus": "accidents", "gain": 0.9, "fadeInMs": 10, "fadeOutMs": 10 }

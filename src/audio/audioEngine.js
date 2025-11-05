@@ -119,6 +119,35 @@ export class AudioEngine {
     } catch (_) {}
   }
 
+  // Restore mixer defaults after a hard cut or end-of-sequence
+  resetToDefaults(rampSeconds = 0.25) {
+    this._ensureContext();
+    const t = this.context.currentTime;
+    const rt = Math.max(0.001, Number.isFinite(rampSeconds) ? rampSeconds : 0.25);
+    // Master gain back to nominal
+    try {
+      this.masterGain.gain.cancelScheduledValues(t);
+      this.masterGain.gain.setValueAtTime(this.masterGain.gain.value, t);
+      this.masterGain.gain.linearRampToValueAtTime(0.9, t + rt);
+    } catch (_) {}
+    // Reset bus gains
+    try { this.buses.beds.gain.value = 1.0; } catch (_) {}
+    try { this.buses.fx.gain.value = 1.0; } catch (_) {}
+    try { this.buses.accidents.gain.value = 1.0; } catch (_) {}
+    // Reset FX wet/dry mix to subtle default
+    try {
+      const { dryGain, wetGain } = this.fxChain;
+      if (dryGain && wetGain) {
+        dryGain.gain.cancelScheduledValues(t);
+        wetGain.gain.cancelScheduledValues(t);
+        dryGain.gain.setValueAtTime(dryGain.gain.value, t);
+        wetGain.gain.setValueAtTime(wetGain.gain.value, t);
+        dryGain.gain.linearRampToValueAtTime(1.0, t + rt);
+        wetGain.gain.linearRampToValueAtTime(0.0, t + rt);
+      }
+    } catch (_) {}
+  }
+
   getBus(name) {
     this._ensureContext();
     const bus = this.buses[name];
