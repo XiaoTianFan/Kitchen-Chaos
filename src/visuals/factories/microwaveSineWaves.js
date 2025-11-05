@@ -20,8 +20,8 @@ export function create(params = {}, ctx = {}) {
     const line = new THREE.Line(geo, mat);
     line.renderOrder = 70;
     group.add(line);
-    const amp = 12 + Math.random() * 2; // thin, reduced variability
-    const freq = 2 + Math.random() * 2; // cycles across width
+    const amp = 12 + Math.random() * 1.2; // thin, reduced variability
+    const freq = 2 + Math.random() * 1.2; // cycles across width
     return { line, phase: Math.random() * Math.PI * 2, dir: dir, amp, freq };
   }
 
