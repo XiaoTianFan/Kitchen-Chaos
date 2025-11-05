@@ -56,7 +56,8 @@ export function create(params = {}, ctx = {}) {
       const leftSide = Math.random() < 0.5;
       const x = leftSide ? -20 - Math.random() * 40 : W + 20 + Math.random() * 40;
       const y = H + 20 + Math.random() * 80; // from top, slightly above
-      const size = 28 + Math.random() * 48;
+      const minDim = Math.min(W, H);
+      const size = minDim * (0.07 + Math.random() * 0.08); // 5% - 11% of min dimension
       const color = new THREE.Color(colors[Math.floor(Math.random() * colors.length)]);
       const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity });
       const types = ['triangle', 'ring', 'rectangle', 'circle'];

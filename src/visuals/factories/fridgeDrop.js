@@ -54,7 +54,8 @@ export function create(params = {}, ctx = {}) {
     for (let i = 0; i < count; i++) {
       const types = ['triangle', 'ring', 'rectangle', 'circle'];
       const type = types[Math.floor(Math.random() * types.length)];
-      const size = 48 + Math.random() * 56; // larger overall sizes
+      const minDim = Math.min(ctx.width || 1, ctx.height || 1);
+      const size = minDim * (0.07 + Math.random() * 0.08); // 7% - 14% of min dimension
       const color = new THREE.Color(colors[Math.floor(Math.random() * colors.length)]);
       const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity });
       const mesh = createMeshByType(type, size, mat);
