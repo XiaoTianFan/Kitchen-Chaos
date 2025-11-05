@@ -56,7 +56,6 @@ PRD: Kitchen Chaos A/V Story (Web)
 - Cooking: `lighter`, `stove` (looped), `stove_fire`, `hissing_pan` (looped, requires `stoveOn`), `water_pour`, `glass_stirring`, `cooking_spray`, `microwave`, `glass_clink`, `boiling_water` (looped, requires `stoveOn`)
 - Accident Breakout: `clatter`, `pot_falling`, `objects_falling`, `thump`
 - Chaos: `fire_alarm` (looped), `clatter`, `pot_falling`, `thump`
-  - During Chaos, the FX bus delay wet mix ramps up gradually across the state (approx. 0.1 → 0.9 over ~30 s) creating an increasingly echoic space.
 
 6) Interaction grammar (sequencer-gated)
 - Click anywhere: advances only if the immediate next cue is eligible for `click`.
@@ -88,14 +87,18 @@ PRD: Kitchen Chaos A/V Story (Web)
   - boiling_water → boilingVerticalSine (fixed-parameter vertical white sines; upward motion via phase progression only)
   - tap → tapWaterSpectrogram (steady blue spectrum at bottom + water stream)
   - squeeze_juice → juiceDroplets (z-axis droplets toward canvas; center-biased impacts; persist until `juice:clear`)
-  - fire_alarm → flashingCircularSpectrogram (unchanged)
-  - accidents (clatter/pot_falling/objects_falling/thump) → accidentBursts (unchanged)
+  - fire_alarm → fireAlarmBlinkFrame (red frame around canvas; blinks on gate hits; fades after silence)
+  - clatter → clatterFissure (foreground crack, thick connected segments; persists across hits)
+  - pot_falling → potFallingShake (full-canvas shake via fx:shake on spawn and hits)
+  - objects_falling → objectsFallingBounce (bouncy shapes that keep bouncing; wall/floor collisions; persist)
+  - thump → thumpRipple (foreground ring at pointer; opacity 0.8; expands wide and fades over ~2 s)
 - Coordinate mapping: pointer (0..1) normalized → pixel space; y is inverted so DOM top maps to screen top; orthographic camera uses pixel units.
 
 7.1) Gate trigger mechanism
 - Each playing sound registers an analyser tap; short-term RMS is computed with attack/release smoothing and hysteresis.
 - Per-sound gate thresholds live in config/app.json under each sound's `gate` field (e.g., `{ "thresholdDb": -30, "attackMs": 15, "releaseMs": 150, "minIntervalMs": 90 }`).
 - On threshold crossing (with debounce), a `gate:hit` event triggers associated visuals; continuous `gate:level` events expose current RMS for debugging. Some visuals listen for custom clear signals emitted elsewhere: `juice:clear`, `spray:clear`, `clink:clear`.
+- Renderer listens for `fx:shake` (detail: `{ durationMs, intensity }`) to apply transient full-canvas shake.
 
 8) Audio model
 - Defaults: gain 0 dB, playbackRate 1.0, fadeIn 15 ms, fadeOut 30 ms (short fades to avoid clicks; does not affect one-shot length noticeably).
@@ -168,7 +171,7 @@ PRD: Kitchen Chaos A/V Story (Web)
 
 15.2 Implementation notes
 - Path resolution: All asset paths use absolute paths from server root (e.g., `/assets/audio/stove.ogg`).
-- Visual factories implemented (current): heatRing, accidentBursts, flashingCircularSpectrogram, pulseStrokes, polygonWrinkle, starburstShards, flareHeat, steamParticles, bubbleField, vortexSpiral, sparkLine, microwaveGrid, fridgeDrop, knifeStripe, chopStripe, cutStripe, ribbonWave, rippleEmitter, sprayCone, citrusSplash, microwaveSineWaves, glassClinkRings, boilingVerticalSine, redSpectrogram, redFilterOverlay, blinkOverlay, bagRustleSides, waterPourStream, glassArcSpinner, whiteSprayDroplets, tapWaterSpectrogram, juiceDroplets.
+- Visual factories implemented (current): accidentBursts, flashingCircularSpectrogram, fridgeDrop, knifeStripe, chopStripe, cutStripe, bagRustleSides, blinkOverlay, redSpectrogram, redFilterOverlay, waterPourStream, glassArcSpinner, whiteSprayDroplets, tapWaterSpectrogram, juiceDroplets, microwaveSineWaves, glassClinkRings, boilingVerticalSine, clatterFissure, potFallingShake, objectsFallingBounce, thumpRipple, fireAlarmBlinkFrame.
 - Sound mapping: Each sound entry in config includes: id, file, visual, bus. Behavior is determined by `sequence` actions.
 
 Example minimal schema:

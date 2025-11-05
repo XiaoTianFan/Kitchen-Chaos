@@ -12,8 +12,8 @@ export function create(params = {}, ctx = {}) {
   const rings = []; // { mesh }
 
   function spawnRing() {
-    const rOuter = Math.min(W, H) * (0.12 + Math.random() * 0.20);
-    const rInner = Math.max(2, rOuter * 0.75);
+    const rOuter = Math.min(W, H) * (0.12 + Math.random() * 0.15);
+    const rInner = Math.max(2, rOuter * 0.8);
     const geo = new THREE.RingGeometry(rInner, rOuter, 128);
     const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: alpha, side: THREE.DoubleSide });
     mat.depthWrite = false; mat.depthTest = false;

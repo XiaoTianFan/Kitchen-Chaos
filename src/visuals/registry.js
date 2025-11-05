@@ -16,6 +16,11 @@ import { create as createWhiteSprayDroplets } from './factories/whiteSprayDrople
 import { create as createMicrowaveSineWaves } from './factories/microwaveSineWaves.js';
 import { create as createGlassClinkRings } from './factories/glassClinkRings.js';
 import { create as createBoilingVerticalSine } from './factories/boilingVerticalSine.js';
+import { create as createClatterFissure } from './factories/clatterFissure.js';
+import { create as createPotFallingShake } from './factories/potFallingShake.js';
+import { create as createObjectsFallingBounce } from './factories/objectsFallingBounce.js';
+import { create as createThumpRipple } from './factories/thumpRipple.js';
+import { create as createFireAlarmBlinkFrame } from './factories/fireAlarmBlinkFrame.js';
 
 const registry = {
   accidentBursts: createAccidentBursts,
@@ -36,6 +41,11 @@ const registry = {
   ,microwaveSineWaves: createMicrowaveSineWaves
   ,glassClinkRings: createGlassClinkRings
   ,boilingVerticalSine: createBoilingVerticalSine
+  ,clatterFissure: createClatterFissure
+  ,potFallingShake: createPotFallingShake
+  ,objectsFallingBounce: createObjectsFallingBounce
+  ,thumpRipple: createThumpRipple
+  ,fireAlarmBlinkFrame: createFireAlarmBlinkFrame
 };
 
 export function createFactory(name, params, ctx) {

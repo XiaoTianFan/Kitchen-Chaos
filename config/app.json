@@ -60,12 +60,12 @@
   "sounds": [
     { "id": "stove", "file": "stove.ogg", "visual": "redSpectrogram", "bus": "beds", "gain": 0.9, "fadeInMs": 10, "fadeOutMs": 10, "gate": { "thresholdDb": -28, "attackMs": 12, "releaseMs": 140, "minIntervalMs": 80 } },
     { "id": "water_pour", "file": "water_pour.ogg", "visual": "waterPourStream", "bus": "fx", "gain": 0.9, "fadeInMs": 10, "fadeOutMs": 10, "gate": { "thresholdDb": -36, "attackMs": 12, "releaseMs": 140, "minIntervalMs": 60 } },
-    { "id": "fire_alarm", "file": "fire_alarm.ogg", "visual": "flashingCircularSpectrogram", "bus": "accidents", "gain": 0.9, "fadeInMs": 10, "fadeOutMs": 10 },
-    { "id": "clatter", "file": "clatter.ogg", "visual": "accidentBursts", "bus": "accidents", "gain": 0.9, "fadeInMs": 10, "fadeOutMs": 10 },
-    { "id": "pot_falling", "file": "pot_falling.ogg", "visual": "accidentBursts", "bus": "accidents", "gain": 0.9, "fadeInMs": 10, "fadeOutMs": 10 },
-    { "id": "thump", "file": "thump.ogg", "visual": "accidentBursts", "bus": "accidents", "gain": 0.9, "fadeInMs": 10, "fadeOutMs": 10 },
+    { "id": "fire_alarm", "file": "fire_alarm.ogg", "visual": "fireAlarmBlinkFrame", "bus": "accidents", "gain": 0.9, "fadeInMs": 10, "fadeOutMs": 10 },
+    { "id": "clatter", "file": "clatter.ogg", "visual": "clatterFissure", "bus": "accidents", "gain": 0.9, "fadeInMs": 10, "fadeOutMs": 10 },
+    { "id": "pot_falling", "file": "pot_falling.ogg", "visual": "potFallingShake", "bus": "accidents", "gain": 0.9, "fadeInMs": 10, "fadeOutMs": 10 },
+    { "id": "thump", "file": "thump.ogg", "visual": "thumpRipple", "bus": "accidents", "gain": 0.9, "fadeInMs": 10, "fadeOutMs": 10 },
     { "id": "bag_rustling", "file": "bag_rustling.ogg", "visual": "bagRustleSides", "bus": "fx", "gain": 0.9, "fadeInMs": 10, "fadeOutMs": 10 },
-    { "id": "glass_clink", "file": "glass_clink.ogg", "visual": "glassClinkRings", "bus": "fx", "gain": 0.9, "fadeInMs": 10, "fadeOutMs": 10, "gate": { "thresholdDb": -30, "attackMs": 12, "releaseMs": 120, "minIntervalMs": 70 } },
+    { "id": "glass_clink", "file": "glass_clink.ogg", "visual": "glassClinkRings", "bus": "fx", "gain": 0.9, "fadeInMs": 10, "fadeOutMs": 10, "gate": { "thresholdDb": -32, "attackMs": 12, "releaseMs": 120, "minIntervalMs": 70 } },
     { "id": "lighter", "file": "lighter.ogg", "visual": "blinkOverlay", "bus": "fx", "gain": 0.9, "fadeInMs": 10, "fadeOutMs": 10, "gate": { "thresholdDb": -40, "attackMs": 10, "releaseMs": 100, "minIntervalMs": 80 } },
     { "id": "cooking_spray", "file": "cooking_spray.ogg", "visual": "whiteSprayDroplets", "bus": "fx", "gain": 0.9, "fadeInMs": 10, "fadeOutMs": 10, "gate": { "thresholdDb": -36, "attackMs": 10, "releaseMs": 120, "minIntervalMs": 70 } },
     { "id": "boiling_water", "file": "boiling_water.ogg", "visual": "boilingVerticalSine", "bus": "beds", "gain": 0.9, "fadeInMs": 10, "fadeOutMs": 10 },
@@ -79,6 +79,6 @@
     { "id": "squeeze_juice", "file": "squeeze_juice.ogg", "visual": "juiceDroplets", "bus": "fx", "gain": 0.9, "fadeInMs": 10, "fadeOutMs": 10, "gate": { "thresholdDb": -40, "attackMs": 15, "releaseMs": 150, "minIntervalMs": 90 } },
     { "id": "hissing_pan", "file": "hissing_pan.ogg", "visual": "redFilterOverlay", "bus": "beds", "gain": 0.8, "fadeInMs": 10, "fadeOutMs": 10 },
     { "id": "stove_fire", "file": "stove_fire.ogg", "visual": "redSpectrogram", "bus": "fx", "gain": 0.75, "fadeInMs": 10, "fadeOutMs": 10, "gate": { "thresholdDb": -28, "attackMs": 12, "releaseMs": 140, "minIntervalMs": 80 } },
-    { "id": "objects_falling", "file": "objects_falling.ogg", "visual": "accidentBursts", "bus": "accidents", "gain": 0.9, "fadeInMs": 10, "fadeOutMs": 10 }
+    { "id": "objects_falling", "file": "objects_falling.ogg", "visual": "objectsFallingBounce", "bus": "accidents", "gain": 0.9, "fadeInMs": 10, "fadeOutMs": 10 }
   ]
 }

@@ -65,6 +65,7 @@ export class Sequencer {
       }
     }
     try {
+      let didGoto = false;
       // Apply audio action
       const action = cue?.action;
       const sound = cue?.sound;
@@ -110,6 +111,7 @@ export class Sequencer {
           this.fsm?.goTo?.(cue.to, 'sequencer');
           log('state:goto', { to: cue.to, from: this.stateName, index: currentIdx });
         } catch (_) {}
+        didGoto = true;
       }
 
       // Optional FSM side effects
@@ -128,7 +130,11 @@ export class Sequencer {
         try { this.onCue(cue, { inputType, actionCtx }); } catch (_) {}
       }
       // Advance index only after successful execution
-      this.index = this.index + 1;
+      // If we transitioned state, the onEnter hook resets the sequence and index.
+      // Do not increment here or we'd skip the first cue of the new state.
+      if (!didGoto) {
+        this.index = this.index + 1;
+      }
       this._lastAdvanceAt = now;
     } catch (_) {
       // swallow to avoid breaking linear flow on a single cue

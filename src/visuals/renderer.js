@@ -2,6 +2,7 @@
 
 import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
 import { palette } from '../theme/palette.js';
+import { gateBus } from '../audio/gateBus.js';
 
 export class Renderer {
   constructor(canvas) {
@@ -23,6 +24,23 @@ export class Renderer {
     this.heartbeat = new THREE.Mesh(geo, mat);
     this.scene.add(this.heartbeat);
     this.visuals = new Set();
+
+    // camera/scene shake state
+    this._shakeT = 0;      // seconds remaining
+    this._shakeDur = 0.001; // seconds total of current shake
+    this._shakeAmp = 0;    // pixels amplitude at start
+
+    // listen for shake requests
+    try {
+      gateBus.addEventListener('fx:shake', (e) => {
+        const d = (e && e.detail) || {};
+        const durSec = Math.max(0.01, ((d.durationMs ?? 400) / 1000));
+        const amp = Math.max(0, d.intensity ?? 10);
+        this._shakeDur = durSec;
+        this._shakeT = Math.max(this._shakeT, durSec);
+        this._shakeAmp = Math.max(this._shakeAmp, amp);
+      });
+    } catch (_) {}
 
     // initialize subtle kitchen grid behind visuals
     this._initGrid();
@@ -49,8 +67,19 @@ export class Renderer {
     // animate placeholder heartbeat
     const r = 6 + 2 * Math.sin(tSec * 4);
     this.heartbeat.scale.setScalar(Math.max(0.001, r / 10));
-    // Update visuals if they expose update(); prune dead/unparented
+    // Apply transient screen shake by offsetting the entire scene
     const dt = (typeof dtSec === 'number' && isFinite(dtSec) && dtSec > 0) ? dtSec : 1/60;
+    if (this._shakeT > 0 && this._shakeDur > 0) {
+      const k = Math.max(0, Math.min(1, this._shakeT / this._shakeDur));
+      const amp = this._shakeAmp * k;
+      const ox = (Math.random() * 2 - 1) * amp;
+      const oy = (Math.random() * 2 - 1) * amp;
+      this.scene.position.set(ox, oy, 0);
+      this._shakeT = Math.max(0, this._shakeT - dt);
+    } else {
+      this.scene.position.set(0, 0, 0);
+    }
+    // Update visuals if they expose update(); prune dead/unparented
     for (const v of Array.from(this.visuals)) {
       try { v.update?.(null, dt); } catch (_) {}
       if (v && (v.alive === false || !v.object3D || !v.object3D.parent)) {
