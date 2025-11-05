@@ -25,6 +25,9 @@ import { create as createRedFilterOverlay } from './factories/redFilterOverlay.j
 import { create as createWaterPourStream } from './factories/waterPourStream.js';
 import { create as createGlassArcSpinner } from './factories/glassArcSpinner.js';
 import { create as createWhiteSprayDroplets } from './factories/whiteSprayDroplets.js';
+import { create as createMicrowaveSineWaves } from './factories/microwaveSineWaves.js';
+import { create as createGlassClinkRings } from './factories/glassClinkRings.js';
+import { create as createBoilingVerticalSine } from './factories/boilingVerticalSine.js';
 
 const registry = {
   heatRing: createHeatRing,
@@ -54,6 +57,9 @@ const registry = {
   ,waterPourStream: createWaterPourStream
   ,glassArcSpinner: createGlassArcSpinner
   ,whiteSprayDroplets: createWhiteSprayDroplets
+  ,microwaveSineWaves: createMicrowaveSineWaves
+  ,glassClinkRings: createGlassClinkRings
+  ,boilingVerticalSine: createBoilingVerticalSine
 };
 
 export function createFactory(name, params, ctx) {
