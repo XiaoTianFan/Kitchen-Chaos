@@ -128,12 +128,6 @@ function frame(ts) {
   frame._lastTs = now;
   const dtSec = Math.max(0, (now - last) / 1000);
   if (fsm) fsm.tick(dtSec);
-  // In Chaos, progressively raise FX bus delay wet mix over 30s
-  if (audio && fsm && fsm.state === 'Chaos') {
-    const k = Math.max(0, Math.min(1, fsm.tState / 30));
-    const wet = 0.1 + 0.8 * k; // start subtle, grow to strong
-    try { audio.setFxDelayWetMix(wet, 0.25); } catch (_) {}
-  }
   // If Chaos sequence has finished (last cue executed), schedule end if not already scheduled
   try {
     if (fsm && fsm.state === 'Chaos' && sequencer && Array.isArray(sequencer.sequence)) {
@@ -264,7 +258,7 @@ try {
     renderer = new Renderer(canvas);
     const dpr0 = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
     renderer.resize(canvas.width, canvas.height, dpr0);
-    renderer.showCenterText('!Click Anywhere to Start Cooking!', 0.75);
+    renderer.showCenterText('!Click Anywhere to Start Cooking!\nUse headphones for better experience', 0.75);
   }
 } catch (_) {}
 // Start a lightweight render loop before audio unlock
@@ -321,6 +315,19 @@ try {
         } catch (_) {}
         log('state:enter', { state });
         sequencer?.resetForState(state);
+        // Toggle auto-pan and delay only during Chaos; disable otherwise
+        try {
+          if (audio) {
+            if (state === 'Chaos') {
+              audio.setFxAutoPanRate(1);
+              audio.setFxAutoPanDepth(0.8, 0.5);
+              audio.setFxDelayWetMix(0.5, 0.5);
+            } else {
+              audio.setFxAutoPanDepth(0.0, 0.25);
+              audio.setFxDelayWetMix(0.0, 0.25);
+            }
+          }
+        } catch (_) {}
       }
     });
     // Preload and decode all audio buffers

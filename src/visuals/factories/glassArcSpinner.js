@@ -6,7 +6,7 @@ import { palette } from '../../theme/palette.js';
 export function create(params = {}, ctx = {}) {
   const group = new THREE.Group();
   const color = new THREE.Color(params.color || palette.skyBlue);
-  const alpha = 0.9;
+  const alpha = 0.75;
   const W = ctx.width || 1; const H = ctx.height || 1;
   const cx = W * 0.5; const cy = H * 0.5;
 

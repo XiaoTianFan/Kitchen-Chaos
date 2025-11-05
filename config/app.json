@@ -62,7 +62,7 @@
     { "id": "water_pour", "file": "water_pour.ogg", "visual": "waterPourStream", "bus": "fx", "gain": 0.9, "fadeInMs": 10, "fadeOutMs": 10, "gate": { "thresholdDb": -36, "attackMs": 12, "releaseMs": 140, "minIntervalMs": 60 } },
     { "id": "fire_alarm", "file": "fire_alarm.ogg", "visual": "fireAlarmBlinkFrame", "bus": "accidents", "gain": 0.9, "fadeInMs": 10, "fadeOutMs": 10 },
     { "id": "clatter", "file": "clatter.ogg", "visual": "clatterFissure", "bus": "accidents", "gain": 0.9, "fadeInMs": 10, "fadeOutMs": 10 },
-    { "id": "pot_falling", "file": "pot_falling.ogg", "visual": "potFallingShake", "bus": "accidents", "gain": 0.9, "fadeInMs": 10, "fadeOutMs": 10 },
+    { "id": "pot_falling", "file": "pot_falling.ogg", "visual": "potFallingShake", "bus": "accidents", "gain": 1, "fadeInMs": 10, "fadeOutMs": 10 },
     { "id": "thump", "file": "thump.ogg", "visual": "thumpRipple", "bus": "accidents", "gain": 0.9, "fadeInMs": 10, "fadeOutMs": 10 },
     { "id": "bag_rustling", "file": "bag_rustling.ogg", "visual": "bagRustleSides", "bus": "fx", "gain": 0.9, "fadeInMs": 10, "fadeOutMs": 10 },
     { "id": "glass_clink", "file": "glass_clink.ogg", "visual": "glassClinkRings", "bus": "fx", "gain": 0.9, "fadeInMs": 10, "fadeOutMs": 10, "gate": { "thresholdDb": -32, "attackMs": 12, "releaseMs": 120, "minIntervalMs": 70 } },

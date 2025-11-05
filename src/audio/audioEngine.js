@@ -17,7 +17,13 @@ export class AudioEngine {
       dryGain: null,
       wetGain: null,
       delay: null,
-      feedback: null
+      feedback: null,
+      // Auto-pan (bus-level) inserted before dry/wet split
+      autoPan: {
+        panner: null,
+        lfo: null,
+        depth: null
+      }
     };
     this._unlocked = false;
   }
@@ -73,15 +79,28 @@ export class AudioEngine {
     this.fxChain.dryGain.gain.value = 1.0;
     this.fxChain.wetGain.gain.value = 0.0;
     this.fxChain.delay.delayTime.value = 0.25; // 250 ms slapback
-    this.fxChain.feedback.gain.value = 0.35; // gentle repeats
+    this.fxChain.feedback.gain.value = 0.45;
 
-    // Wire FX chain: buses (fx, accidents) → [dry || delay→wet] → master
-    this.buses.fx.connect(this.fxChain.dryGain);
-    this.buses.accidents.connect(this.fxChain.dryGain);
+    // Auto-pan setup (disabled by default)
+    this.fxChain.autoPan.panner = ctx.createStereoPanner();
+    this.fxChain.autoPan.panner.pan.value = 0;
+    this.fxChain.autoPan.depth = ctx.createGain();
+    this.fxChain.autoPan.depth.gain.value = 0; // disabled by default; enabled in Chaos
+    this.fxChain.autoPan.lfo = ctx.createOscillator();
+    this.fxChain.autoPan.lfo.type = 'sine';
+    this.fxChain.autoPan.lfo.frequency.value = 1; // Hz
+    // lfo → depth (scale) → panner.pan
+    this.fxChain.autoPan.lfo.connect(this.fxChain.autoPan.depth);
+    this.fxChain.autoPan.depth.connect(this.fxChain.autoPan.panner.pan);
+    try { this.fxChain.autoPan.lfo.start(); } catch (_) {}
+
+    // Wire FX chain: (fx + accidents) → autoPan → [dry || delay→wet] → master
+    this.buses.fx.connect(this.fxChain.autoPan.panner);
+    this.buses.accidents.connect(this.fxChain.autoPan.panner);
+    this.fxChain.autoPan.panner.connect(this.fxChain.dryGain);
     this.fxChain.dryGain.connect(this.masterGain);
 
-    this.buses.fx.connect(this.fxChain.delay);
-    this.buses.accidents.connect(this.fxChain.delay);
+    this.fxChain.autoPan.panner.connect(this.fxChain.delay);
     this.fxChain.delay.connect(this.fxChain.wetGain);
     this.fxChain.wetGain.connect(this.masterGain);
     // Feedback loop
@@ -146,6 +165,15 @@ export class AudioEngine {
         wetGain.gain.linearRampToValueAtTime(0.0, t + rt);
       }
     } catch (_) {}
+    // Disable auto-pan by default outside Chaos
+    try {
+      const ap = this.fxChain?.autoPan;
+      if (ap?.depth) {
+        ap.depth.gain.cancelScheduledValues(t);
+        ap.depth.gain.setValueAtTime(ap.depth.gain.value, t);
+        ap.depth.gain.linearRampToValueAtTime(0.0, t + rt);
+      }
+    } catch (_) {}
   }
 
   getBus(name) {
@@ -196,6 +224,32 @@ export class AudioEngine {
       const rt = Math.max(0.001, rampSeconds || 0);
       dryGain.gain.linearRampToValueAtTime(dry, t + rt);
       wetGain.gain.linearRampToValueAtTime(wet, t + rt);
+    } catch (_) {}
+  }
+
+  // Set auto-pan modulation depth (0..1) for FX/Accidents buses
+  setFxAutoPanDepth(depth = 0, rampSeconds = 0.2) {
+    this._ensureContext();
+    const d = Math.max(0, Math.min(1, Number.isFinite(depth) ? depth : 0));
+    try {
+      const { autoPan } = this.fxChain;
+      if (!autoPan?.depth) return;
+      const t = this.context.currentTime;
+      const rt = Math.max(0.001, rampSeconds || 0);
+      autoPan.depth.gain.cancelScheduledValues(t);
+      autoPan.depth.gain.setValueAtTime(autoPan.depth.gain.value, t);
+      autoPan.depth.gain.linearRampToValueAtTime(d, t + rt);
+    } catch (_) {}
+  }
+
+  // Set auto-pan LFO rate in Hz
+  setFxAutoPanRate(hz = 0.2) {
+    this._ensureContext();
+    const f = Math.max(0.001, Number.isFinite(hz) ? hz : 0.2);
+    try {
+      const { autoPan } = this.fxChain;
+      if (!autoPan?.lfo) return;
+      autoPan.lfo.frequency.setValueAtTime(f, this.context.currentTime);
     } catch (_) {}
   }
 }
