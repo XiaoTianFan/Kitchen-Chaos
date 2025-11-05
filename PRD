@@ -1,7 +1,7 @@
 PRD: Kitchen Chaos A/V Story (Web)
 
 1) Summary and vision
-- Purpose: An interactive, comedic audio-visual piece where ordinary cooking escalates into chaos. Users trigger most sounds via pointer actions; accidents trigger themselves as the story advances. Visuals are playful, candy-pastel abstractions. The story ends at peak chaos with a hard audio cut after 30 seconds in Chaos. Visual end treatment will be handled separately.
+- Purpose: An interactive, comedic audio-visual piece where ordinary cooking escalates into chaos. Users trigger most sounds via pointer actions; accidents trigger themselves as the story advances. Visuals are playful, candy-pastel abstractions. The story ends 5 seconds after the final Chaos cue with five full-canvas white blinks, a 3 s visual fade-out (background + grid remain), then a centered closing line appears.
 - Platforms: Desktop and mobile browsers, both orientations.
 - Stack: Pure frontend (HTML/CSS/JS), Three.js for visuals, Web Audio API for sound. Static hosting.
 - Inputs: Pointer only (click/drag/hold).
@@ -12,7 +12,7 @@ PRD: Kitchen Chaos A/V Story (Web)
 - The four narrative states occur in order via sequencer cues (no time/metric-based transitions).
 - Accidents and other events are triggered deterministically through the sequencer and user actions.
 - Sound and visual pairings feel coherent and comedic; panning matches on-screen x-position.
-- UI narrative appears bottom-center as short captions.
+- UI narrative is rendered as centered on-canvas text.
 
 3) Assets (final samples; in-app gain/speed/fades allowed)
 - File naming convention: All filenames use underscores instead of spaces (e.g., "bag_rustling.ogg" not "bag rustling.ogg") for consistent URL handling.
@@ -93,6 +93,7 @@ PRD: Kitchen Chaos A/V Story (Web)
   - objects_falling → objectsFallingBounce (bouncy shapes that keep bouncing; wall/floor collisions; persist)
   - thump → thumpRipple (foreground ring at pointer; opacity 0.8; expands wide and fades over ~2 s)
 - Coordinate mapping: pointer (0..1) normalized → pixel space; y is inverted so DOM top maps to screen top; orthographic camera uses pixel units.
+- Text rendering: centered sprite text on canvas; font size scales with canvas (~6% of min dimension, clamped), opacity target ~0.9; re-centers and re-renders on resize.
 
 7.1) Gate trigger mechanism
 - Each playing sound registers an analyser tap; short-term RMS is computed with attack/release smoothing and hysteresis.
@@ -124,16 +125,19 @@ PRD: Kitchen Chaos A/V Story (Web)
 - Accidents: spawn at designed positions or center as visuals dictate.
 - Fire alarm: sustained; visual can be stationary or lightly animated (no required orbit).
 
-11) UI prompts (comedic, minimal)
-- Preparing: “Maybe light something.”
-- Cooking: “Multitasking is easy. Add more. More.”
-- Accident Breakout: “It’s fine. Totally fine.”
-- Chaos: “Nailed it.”
-- Display bottom-center as small captions; fade in/out around state changes.
- - Cue text style: In Preparing/Cooking, texts are friendly hints about what the user will do next. In Accident Breakout/Chaos, texts describe what just happened (event narration), not predictions.
+11) On-canvas prompts and timing
+- Opening line (centered): “Click Anywhere to Start Cooking”.
+- State enter lines (centered):
+  - Preparing: “Maybe light something.”
+  - Cooking: “Multitasking is easy. Add more. More.”
+  - Accident Breakout: “It’s fine. Totally fine.”
+  - Chaos: “Nailed it.”
+- Event narration lines (centered): shown for cues that include `text` in the config.
+- Timing: after each event cue is triggered, the corresponding line appears after ~2.5 s (delayed), with ~0.7 s fade-in to ~0.9 opacity.
+- Style guidance: In Preparing/Cooking, lines hint at next actions; in Accident Breakout/Chaos, lines describe what just happened.
 
 12) Error handling and edge cases
-- If AudioContext fails to start, display a tap-to-start overlay.
+- If AudioContext fails to start, keep the centered on-canvas opening line visible and log errors to console; audio resumes on user interaction.
 - If a required dependency fails (e.g., WebGL), fallback message: “Needs WebGL/Audio enabled.”
 - Buffer loading: Graceful degradation - if a buffer fails to decode or fetch, log a warning and continue loading other buffers. The failed sound will be skipped during playback (returns null) rather than crashing the app.
 - Individual sound failures don't block the experience; only missing critical dependencies (WebGL, AudioContext) prevent startup.
@@ -159,7 +163,7 @@ PRD: Kitchen Chaos A/V Story (Web)
 - Audio panning matches visual x within one animation frame latency.
 - States occur in correct order via sequencer cues.
 - All listed sounds are reachable via click/hold/drag per sequences.
-- Chaos ends at ~30 s with a hard audio cut (visual end treatment TBD).
+- Chaos ending: 5 seconds after the final Chaos cue executes, audio is cut; then the canvas blinks white 5× (≈200 ms each), all non-grid visuals fade out over ~3 s, and the centered closing line appears with ~1.5 s fade-in.
 - Works on recent Chrome/Safari/Firefox mobile and desktop; first interaction unlocks audio.
 
 15) Data-driven configuration

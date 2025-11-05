@@ -1,5 +1,5 @@
 // Minimal bootstrap for plain JS (no bundler)
-// - Handles overlay interaction (first user gesture)
+// - Handles first user gesture
 // - Sizes the full-screen canvas with devicePixelRatio
 // - Starts a lightweight RAF loop placeholder
 
@@ -15,7 +15,6 @@ import { createFactory } from './visuals/registry.js';
 import { Sequencer } from './sequencer.js';
 import { gateBus } from './audio/gateBus.js';
 
-const overlay = document.getElementById('overlay');
 const canvas = document.getElementById('scene');
 const gateDebugEl = document.getElementById('gate-debug');
 if (gateDebugEl) gateDebugEl.textContent = 'gate levels: —';
@@ -33,7 +32,6 @@ let sequencer = null;
 let appConfig = null;
 let chaosCutDone = false;
 let chaosCutTimeoutId = null;
-let chaosLastCueTriggeredAt = 0;
 let promptTimeoutId = null;
 
 function blinkSequence(times, durationMs, onDone) {
@@ -103,7 +101,6 @@ function frame(ts) {
     if (fsm && fsm.state === 'Chaos' && sequencer && Array.isArray(sequencer.sequence)) {
       const total = (sequencer.sequence.length | 0);
       if (total > 0 && (sequencer.index | 0) >= total && !chaosCutDone && !chaosCutTimeoutId) {
-        chaosLastCueTriggeredAt = fsm.t;
         chaosCutTimeoutId = setTimeout(() => {
           if (chaosCutDone) return;
           try { audio?.stopAll?.(); } catch (_) {}
@@ -129,7 +126,7 @@ function frame(ts) {
 function start() {
   if (started) return;
   started = true;
-  overlay?.classList.add('hidden');
+  // overlay removed
   try { renderer?.hideCenterText?.(); } catch (_) {}
   // If config loaded, pull prompt from Preparing state's enterActions
   try {
@@ -213,8 +210,7 @@ window.addEventListener('resize', resize);
 window.addEventListener('orientationchange', resize);
 window.addEventListener('pointerdown', handleFirstInteraction, { passive: true });
 
-overlay?.addEventListener('click', handleFirstInteraction);
-overlay?.addEventListener('touchstart', handleFirstInteraction, { passive: true });
+// overlay removed
 
 // Initial layout
 resize();
@@ -274,7 +270,7 @@ try {
         // reset chaos ending scheduling on each state entry
         chaosCutDone = false;
         if (chaosCutTimeoutId) { try { clearTimeout(chaosCutTimeoutId); } catch (_) {} chaosCutTimeoutId = null; }
-        chaosLastCueTriggeredAt = 0;
+        // no-op
         try {
           const st = (cfg.fsm?.states || []).find(s => s?.name === state);
           const prompt = st?.enterActions?.find(a => a?.type === 'uiPrompt')?.text;
@@ -302,10 +298,7 @@ try {
     if (sequencer) sequencer.renderer = renderer;
   } catch (err) {
     console.error('[main] config load failed', err);
-    if (overlay) {
-      const card = overlay.querySelector('.overlay-card');
-      if (card) card.textContent = 'Failed to load config. Reload or check files.';
-    }
+    // overlay removed; show errors in console only
   }
 })();
 
