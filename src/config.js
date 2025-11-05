@@ -71,7 +71,7 @@ export function validateAppConfig(cfg) {
       if (!s || typeof s !== 'object') { errors.push('sound entry must be an object.'); continue; }
       if (typeof s.id !== 'string') errors.push('sound.id must be a string.');
       if (typeof s.file !== 'string') errors.push(`sound.file must be a string for sound '${s.id || '<unknown>'}'.`);
-      if (typeof s.type !== 'string') errors.push(`sound.type must be a string for sound '${s.id || '<unknown>'}'.`);
+      // type removed; action semantics are defined in state.sequence.action
     }
   }
 

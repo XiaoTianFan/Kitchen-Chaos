@@ -24,7 +24,8 @@ export class Renderer {
     const w = Math.max(1, Math.floor(pixelWidth));
     const h = Math.max(1, Math.floor(pixelHeight));
     this.width = w; this.height = h;
-    this.renderer.setPixelRatio(Math.max(1, dpr || 1));
+    // Canvas is already sized in device pixels upstream; avoid double DPR scaling here
+    this.renderer.setPixelRatio(1);
     this.renderer.setSize(w, h, false);
     this.camera.left = 0; this.camera.right = w;
     this.camera.top = h; this.camera.bottom = 0;
@@ -33,13 +34,17 @@ export class Renderer {
     this.heartbeat.position.set(w - 16, h - 16, 0);
   }
 
-  render(tSec) {
+  render(tSec, dtSec) {
     // animate placeholder heartbeat
     const r = 6 + 2 * Math.sin(tSec * 4);
     this.heartbeat.scale.setScalar(Math.max(0.001, r / 10));
-    // Update visuals if they expose update()
-    for (const v of this.visuals) {
-      try { v.update?.(null, 1/60); } catch (_) {}
+    // Update visuals if they expose update(); prune dead/unparented
+    const dt = (typeof dtSec === 'number' && isFinite(dtSec) && dtSec > 0) ? dtSec : 1/60;
+    for (const v of Array.from(this.visuals)) {
+      try { v.update?.(null, dt); } catch (_) {}
+      if (v && (v.alive === false || !v.object3D || !v.object3D.parent)) {
+        this.removeVisual(v);
+      }
     }
     this.renderer.render(this.scene, this.camera);
   }

@@ -7,10 +7,13 @@
         "name": "Preparing",
         "enterActions": [{ "type": "uiPrompt", "text": "Maybe light something." }],
         "sequence": [
-          { "action": "playOneShot", "sound": "lighter", "text": "You flick the lighter." },
-          { "action": "toggleSustained", "sound": "stove", "fsm": { "setStove": true }, "text": "The stove ignites." },
-          { "action": "playOneShot", "sound": "bag_rustling", "text": "Grocery bag rustles open." },
-          { "action": "playOneShot", "sound": "fridge", "text": "You open the fridge." },
+          { "action": "playOneShot", "sound": "fridge", "text": "Next: sharpen the knife." },
+          { "action": "playOneShot", "sound": "knife_sharpen", "requires": "drag", "text": "Next: chop some ingredients." },
+          { "action": "playOneShot", "sound": "chopping", "text": "Next: cut the veggies." },
+          { "action": "playOneShot", "sound": "cutting_things", "text": "Next: squeeze some juice." },
+          { "action": "playOneShot", "sound": "juicing", "requires": "hold", "text": "Next: turn on the tap." },
+          { "action": "playOneShot", "sound": "tap", "text": "Next: tear the bag." },
+          { "action": "playOneShot", "sound": "bag_rustling", "text": "Next: start cooking." },
           { "action": "gotoState", "to": "Cooking" }
         ]
       },
@@ -18,17 +21,15 @@
         "name": "Cooking",
         "enterActions": [{ "type": "uiPrompt", "text": "Multitasking is easy. Add more. More." }],
         "sequence": [
-          { "action": "playOneShot", "sound": "cooking_spray", "requires": "hold", "text": "You spray the pan." },
-          { "action": "startSustained", "sound": "hissing_pan", "if": { "stoveOn": true }, "text": "The pan starts to hiss." },
-          { "action": "playOneShot", "sound": "chopping", "text": "You chop ingredients." },
-          { "action": "playOneShot", "sound": "cutting_things", "text": "You slice through veggies." },
-          { "action": "playOneShot", "sound": "microwave", "fsm": { "bumpMicrowave": true }, "text": "Microwave beeps." },
-          { "action": "playOneShot", "sound": "water_pour", "requires": "drag", "text": "You pour water." },
-          { "action": "startSustained", "sound": "boiling_water", "requires": "drag", "if": { "stoveOn": true }, "text": "Water begins to boil." },
-          { "action": "playOneShot", "sound": "glass_clink", "text": "Glasses clink on the counter." },
-          { "action": "playOneShot", "sound": "glass_stirring", "requires": "hold", "text": "You stir a glass." },
-          { "action": "playOneShot", "sound": "knife_sharpen", "requires": "drag", "text": "You sharpen the knife." },
-          { "action": "playOneShot", "sound": "juicing", "requires": "hold", "text": "You squeeze fresh juice." },
+          { "action": "playOneShot", "sound": "lighter", "text": "Next: turn on the stove." },
+          { "action": "startSustained", "sound": "stove", "fsm": { "setStove": true }, "text": "Next: get the pan hissing." },
+          { "action": "startSustained", "sound": "hissing_pan", "if": { "stoveOn": true }, "text": "Next: pour some water." },
+          { "action": "playOneShot", "sound": "water_pour", "requires": "drag", "text": "Next: Next: stir a glass." },
+          { "action": "playOneShot", "sound": "glass_stirring", "requires": "hold", "text": "Next: spray the pan." },
+          { "action": "playOneShot", "sound": "cooking_spray", "requires": "hold", "text": "Next: ping the microwave." },
+          { "action": "playOneShot", "sound": "microwave", "fsm": { "bumpMicrowave": true }, "text": "Next: clink the glasses." },
+          { "action": "playOneShot", "sound": "glass_clink", "text": "Next: bring water to a boil." },
+          { "action": "startSustained", "sound": "boiling_water", "if": { "stoveOn": true }, "text": "Next: accidents begin." },
           { "action": "gotoState", "to": "Accident Breakout" }
         ]
       },
@@ -36,9 +37,9 @@
         "name": "Accident Breakout",
         "enterActions": [{ "type": "uiPrompt", "text": "It’s fine. Totally fine." }],
         "sequence": [
-          { "action": "playOneShot", "sound": "clatter", "text": "Something clatters behind you." },
-          { "action": "playOneShot", "sound": "thing_breaking", "text": "Glass shatters somewhere." },
-          { "action": "playOneShot", "sound": "thump", "text": "A heavy thump echoes." },
+          { "action": "playOneShot", "sound": "clatter", "text": "Next: something breaks." },
+          { "action": "playOneShot", "sound": "thing_breaking", "text": "Next: a heavy thump." },
+          { "action": "playOneShot", "sound": "thump", "text": "Next: chaos erupts." },
           { "action": "gotoState", "to": "Chaos" }
         ]
       },
@@ -46,34 +47,34 @@
         "name": "Chaos",
         "enterActions": [{ "type": "uiPrompt", "text": "Nailed it." }],
         "sequence": [
-          { "action": "startSustained", "sound": "fire_alarm", "text": "The alarm blares overhead." },
-          { "action": "playOneShot", "sound": "clatter", "text": "Clatter intensifies." },
-          { "action": "playOneShot", "sound": "thing_breaking", "text": "Another thing breaks." },
-          { "action": "playOneShot", "sound": "thump", "text": "Yet another thump." }
+          { "action": "startSustained", "sound": "fire_alarm", "text": "Next: more clatter." },
+          { "action": "playOneShot", "sound": "clatter", "text": "Next: more things breaking." },
+          { "action": "playOneShot", "sound": "thing_breaking", "text": "Next: another thump." },
+          { "action": "playOneShot", "sound": "thump", "text": "Next: it only gets messier." }
         ]
       }
     ]
   },
   "sounds": [
-    { "id": "stove", "file": "stove.wav", "type": "sustained_toggle", "visual": "heatRing", "bus": "beds" },
-    { "id": "water_pour", "file": "water_pour.wav", "type": "user_transient_drag", "visual": "ribbonWave", "bus": "fx" },
-    { "id": "fire_alarm", "file": "fire_alarm.wav", "type": "auto_sustained_move", "visual": "flashingCircularSpectrogram", "bus": "accidents" },
-    { "id": "clatter", "file": "clatter.wav", "type": "auto_transient", "visual": "accidentBursts", "bus": "accidents" },
-    { "id": "thing_breaking", "file": "thing_breaking.wav", "type": "auto_transient", "visual": "accidentBursts", "bus": "accidents" },
-    { "id": "thump", "file": "thump.wav", "type": "auto_transient", "visual": "accidentBursts", "bus": "accidents" },
-    { "id": "bag_rustling", "file": "bag_rustling.wav", "type": "user_transient", "visual": "polygonWrinkle", "bus": "fx" },
-    { "id": "glass_clink", "file": "glass_clink.wav", "type": "user_transient", "visual": "starburstShards", "bus": "fx" },
-    { "id": "lighter", "file": "lighter.wav", "type": "user_transient", "visual": "flareHeat", "bus": "fx" },
-    { "id": "cooking_spray", "file": "cooking_spray.wav", "type": "user_sustained_hold", "visual": "sprayCone", "bus": "fx" },
-    { "id": "boiling_water", "file": "boiling_water.wav", "type": "user_sustained", "visual": "bubbleField", "bus": "beds" },
-    { "id": "microwave", "file": "microwave.wav", "type": "user_transient", "visual": "microwaveGrid", "bus": "fx" },
-    { "id": "tap", "file": "tap.wav", "type": "sustained_toggle", "visual": "rippleEmitter", "bus": "beds" },
-    { "id": "fridge", "file": "fridge.wav", "type": "user_transient", "visual": "vortexSpiral", "bus": "fx" },
-    { "id": "chopping", "file": "chopping.wav", "type": "user_transient", "visual": "sparkLine", "bus": "fx" },
-    { "id": "cutting_things", "file": "cutting_things.wav", "type": "user_transient", "visual": "pulseStrokes", "bus": "fx" },
-    { "id": "glass_stirring", "file": "glass_stirring.wav", "type": "user_sustained_hold", "visual": "vortexSpiral", "bus": "fx" },
-    { "id": "knife_sharpen", "file": "knife_sharpen.wav", "type": "user_sustained_hold", "visual": "sparkLine", "bus": "fx" },
-    { "id": "juicing", "file": "juicing.wav", "type": "user_sustained_hold", "visual": "citrusSplash", "bus": "fx" },
-    { "id": "hissing_pan", "file": "hissing_pan.wav", "type": "user_sustained", "visual": "steamParticles", "bus": "beds" }
+    { "id": "stove", "file": "stove.wav", "visual": "heatRing", "bus": "beds" },
+    { "id": "water_pour", "file": "water_pour.wav", "visual": "ribbonWave", "bus": "fx" },
+    { "id": "fire_alarm", "file": "fire_alarm.wav", "visual": "flashingCircularSpectrogram", "bus": "accidents" },
+    { "id": "clatter", "file": "clatter.wav", "visual": "accidentBursts", "bus": "accidents" },
+    { "id": "thing_breaking", "file": "thing_breaking.wav", "visual": "accidentBursts", "bus": "accidents" },
+    { "id": "thump", "file": "thump.wav", "visual": "accidentBursts", "bus": "accidents" },
+    { "id": "bag_rustling", "file": "bag_rustling.wav", "visual": "polygonWrinkle", "bus": "fx" },
+    { "id": "glass_clink", "file": "glass_clink.wav", "visual": "starburstShards", "bus": "fx" },
+    { "id": "lighter", "file": "lighter.wav", "visual": "flareHeat", "bus": "fx" },
+    { "id": "cooking_spray", "file": "cooking_spray.wav", "visual": "sprayCone", "bus": "fx" },
+    { "id": "boiling_water", "file": "boiling_water.wav", "visual": "bubbleField", "bus": "beds" },
+    { "id": "microwave", "file": "microwave.wav", "visual": "microwaveGrid", "bus": "fx" },
+    { "id": "tap", "file": "tap.wav", "visual": "rippleEmitter", "bus": "beds" },
+    { "id": "fridge", "file": "fridge.wav", "visual": "vortexSpiral", "bus": "fx" },
+    { "id": "chopping", "file": "chopping.wav", "visual": "sparkLine", "bus": "fx" },
+    { "id": "cutting_things", "file": "cutting_things.wav", "visual": "pulseStrokes", "bus": "fx" },
+    { "id": "glass_stirring", "file": "glass_stirring.wav", "visual": "vortexSpiral", "bus": "fx" },
+    { "id": "knife_sharpen", "file": "knife_sharpen.wav", "visual": "sparkLine", "bus": "fx" },
+    { "id": "juicing", "file": "juicing.wav", "visual": "citrusSplash", "bus": "fx" },
+    { "id": "hissing_pan", "file": "hissing_pan.wav", "visual": "steamParticles", "bus": "beds" }
   ]
 }

@@ -1,7 +1,7 @@
 PRD: Kitchen Chaos A/V Story (Web)
 
 1) Summary and vision
-- Purpose: An interactive, comedic audio-visual piece where ordinary cooking escalates into chaos. Users trigger most sounds via pointer actions; accidents trigger themselves as the story advances. Visuals are playful, candy-pastel abstractions. The story ends at peak chaos with a hard audio cut, a single white blink, then fade to black.
+- Purpose: An interactive, comedic audio-visual piece where ordinary cooking escalates into chaos. Users trigger most sounds via pointer actions; accidents trigger themselves as the story advances. Visuals are playful, candy-pastel abstractions. The story ends at peak chaos with a hard audio cut after 30 seconds in Chaos. Visual end treatment will be handled separately.
 - Platforms: Desktop and mobile browsers, both orientations.
 - Stack: Pure frontend (HTML/CSS/JS), Three.js for visuals, Web Audio API for sound. Static hosting.
 - Inputs: Pointer only (click/drag/hold).
@@ -38,31 +38,11 @@ PRD: Kitchen Chaos A/V Story (Web)
 - thump.wav
 - water_pour.wav
 
-4) Sound classification and trigger rules
-- Auto-triggered transient (accidents; random spawn position)
-  - clatter.wav
-  - thing_breaking.wav
-  - thump.wav
-- Auto-triggered sustained (accident; moves around)
-  - fire_alarm.wav
-- User-triggered transient (spawn at pointer; short visuals)
-  - chopping.wav
-  - cutting_things.wav
-  - lighter.wav
-  - bag_rustling.wav
-  - glass_clink.wav
-  - fridge.wav (one-shot)
-  - microwave.wav (one-shot)
-  - water_pour.wav (short sustain visual following drag path; audio plays once)
-- User-triggered sustained
-  - stove.wav (toggle on/off)
-  - hissing_pan.wav (after stove on and first cooking action)
-  - boiling_water.wav (after water_pour and stove on)
-  - cooking_spray.wav (hold)
-  - knife_sharpen.wav (hold/drag path)
-  - glass_stirring.wav (hold/drag circle)
-  - juicing.wav (hold)
-  - tap.wav (toggle on/off)
+4) Sound triggering model (simplified)
+- Two playback modalities, determined by sequence actions:
+  - One-shot: `playOneShot`
+  - Looped: `startSustained` / `stopSustained` / `toggleSustained`
+- Sound entries have no `type` field. Author behavior via per-state `sequence` actions.
 
 5) Narrative structure and FSM
 - States: Preparing → Cooking → Accident Breakout → Chaos. Transitions are driven exclusively by sequencer cues (`gotoState`).
@@ -70,10 +50,11 @@ PRD: Kitchen Chaos A/V Story (Web)
 - Accidents and alarms are included as cues within state sequences.
 
 6) Interaction grammar (sequencer-gated)
-- Click anywhere: advances to the next eligible cue (default).
-- Hold start: advances cues that declare `requires: "hold"`.
-- Drag start: advances cues that declare `requires: "drag"`.
+- Click anywhere: advances only if the immediate next cue is eligible for `click`.
+- Hold start: advances only if the immediate next cue declares `requires: "hold"`.
+- Drag start: advances only if the immediate next cue declares `requires: "drag"`.
 - Cues may optionally include simple conditions (e.g., `if: { "stoveOn": true }`).
+- The sequencer does not skip ahead on mismatched input or unmet conditions.
 
 7) Visual language (candy pastels; examples and parameters)
 - Shared visual API (factory output):
@@ -131,7 +112,7 @@ PRD: Kitchen Chaos A/V Story (Web)
 - Toggle: debug=true in a top-level config flag or URL param (?debug=1).
 - Event types and payloads
   - app:init, app:assets_loaded
-  - audio:context_unlocked
+  - audio:context_unlocked, audio:chaos_cut
   - state:enter {state, t}
   - state:goto {to, from}
   - user:action {type, x, y}
@@ -143,6 +124,7 @@ PRD: Kitchen Chaos A/V Story (Web)
 - Audio panning matches visual x within one animation frame latency.
 - States occur in correct order via sequencer cues.
 - All listed sounds are reachable via click/hold/drag per sequences.
+- Chaos ends at ~30 s with a hard audio cut (visual end treatment TBD).
 - Works on recent Chrome/Safari/Firefox mobile and desktop; first interaction unlocks audio.
 
 15) Data-driven configuration
@@ -155,12 +137,12 @@ PRD: Kitchen Chaos A/V Story (Web)
 15.2 Implementation notes
 - Path resolution: All asset paths use absolute paths from server root (e.g., `/assets/audio/stove.wav`).
 - Visual factories implemented: heatRing, ribbonWave, accidentBursts, flashingCircularSpectrogram, pulseStrokes, polygonWrinkle, starburstShards, flareHeat, steamParticles, bubbleField, rippleEmitter, vortexSpiral, sprayCone, sparkLine, citrusSplash, microwaveGrid.
-- Sound mapping: Each sound entry in config includes: id, file, type, visual, bus.
+- Sound mapping: Each sound entry in config includes: id, file, visual, bus. Behavior is determined by `sequence` actions.
 
 Example minimal schema:
 {
   "meta": { "version": 1, "debug": true, "palette": "candyPastels" },
-  "sounds": [ { "id": "stove", "file": "stove.wav", "type": "sustained_toggle", "visual": "heatRing", "bus": "beds" } ],
+  "sounds": [ { "id": "stove", "file": "stove.wav", "visual": "heatRing", "bus": "beds" } ],
   "fsm": {
     "initialState": "Preparing",
     "states": [
@@ -169,7 +151,7 @@ Example minimal schema:
         "enterActions": [{ "type": "uiPrompt", "text": "Maybe light something." }],
         "sequence": [
           { "action": "playOneShot", "sound": "lighter" },
-          { "action": "toggleSustained", "sound": "stove", "fsm": { "setStove": true } },
+          { "action": "startSustained", "sound": "stove", "fsm": { "setStove": true } },
           { "action": "gotoState", "to": "Cooking" }
         ]
       }

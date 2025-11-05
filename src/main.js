@@ -30,6 +30,7 @@ let renderer = null;
 let sounds = null;
 let sequencer = null;
 let appConfig = null;
+let chaosCutDone = false;
 
 function setPrompt(text) {
   setPromptText(text);
@@ -53,8 +54,8 @@ function resize() {
   if (renderer) renderer.resize(width, height, dpr);
 }
 
-function drawPlaceholder(t) {
-  if (renderer) renderer.render((t || 0) / 1000);
+function drawPlaceholder(t, dtSec) {
+  if (renderer) renderer.render((t || 0) / 1000, dtSec);
 }
 
 function frame(ts) {
@@ -63,7 +64,13 @@ function frame(ts) {
   frame._lastTs = now;
   const dtSec = Math.max(0, (now - last) / 1000);
   if (fsm) fsm.tick(dtSec);
-  drawPlaceholder(now);
+  // Chaos end: after 30s in Chaos, cut audio abruptly (visuals handled later)
+  if (fsm && fsm.state === 'Chaos' && fsm.tState >= 30 && !chaosCutDone) {
+    try { audio?.stopAll?.(); } catch (_) {}
+    log('audio:chaos_cut', { tState: fsm.tState });
+    chaosCutDone = true;
+  }
+  drawPlaceholder(now, dtSec);
   rafId = requestAnimationFrame(frame);
 }
 
@@ -104,7 +111,7 @@ function start() {
       if (action?.type === 'click') {
         if (fsm) fsm.recordUserAction();
         log('user:action', { type: 'click' });
-        sequencer?.advance();
+        sequencer?.advance('click', action);
       }
       if (action?.type === 'hold') {
         if (fsm && action.phase === 'start') fsm.recordUserAction();
@@ -164,7 +171,8 @@ setPrompt('');
         if (visualName && renderer) {
           try {
             const px = x * canvas.width;
-            const py = y * canvas.height;
+            // Invert Y so 0 is top (DOM space) → top of screen in our ortho camera
+            const py = (1 - y) * canvas.height;
             const v = createFactory(visualName, {}, { width: canvas.width, height: canvas.height });
             v.setPosition(px, py);
             renderer.addVisual(v);
@@ -178,6 +186,8 @@ setPrompt('');
     }
     fsm.setHooks({
       onEnter: ({ state }) => {
+        // reset chaos cut flag on each state entry
+        chaosCutDone = false;
         try {
           const st = (cfg.fsm?.states || []).find(s => s?.name === state);
           const prompt = st?.enterActions?.find(a => a?.type === 'uiPrompt')?.text;

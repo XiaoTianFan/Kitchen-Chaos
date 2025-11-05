@@ -31,25 +31,19 @@ export class Sequencer {
     if (!this.sequence || this.sequence.length === 0) return; // nothing to do
     if (this.index >= this.sequence.length) return; // reached end, no-op
 
-    // Find the next cue matching inputType and simple conditions
-    let pickedIdx = -1;
-    for (let i = this.index; i < this.sequence.length; i++) {
-      const c = this.sequence[i];
-      const req = c?.requires; // 'click' | 'hold' | 'drag' | undefined
-      const matchesInput = !req || req === inputType;
-      if (!matchesInput) continue;
-      if (c?.if && typeof c.if === 'object') {
-        let ok = true;
-        for (const k of Object.keys(c.if)) {
-          if ((this.fsm?.[k]) !== c.if[k]) { ok = false; break; }
+    // Only consider the immediate next cue; do not skip on mismatched input/conditions
+    const currentIdx = this.index;
+    const cue = this.sequence[currentIdx];
+    const req = cue?.requires; // 'click' | 'hold' | 'drag' | undefined
+    const matchesInput = !req || req === inputType;
+    if (!matchesInput) return; // wait for correct gesture
+    if (cue?.if && typeof cue.if === 'object') {
+      for (const k of Object.keys(cue.if)) {
+        if ((this.fsm?.[k]) !== cue.if[k]) {
+          return; // wait until conditions satisfied
         }
-        if (!ok) continue;
       }
-      pickedIdx = i;
-      break;
     }
-    if (pickedIdx === -1) return; // nothing suitable
-    const cue = this.sequence[pickedIdx];
     try {
       // Apply audio action
       const action = cue?.action;
@@ -66,18 +60,18 @@ export class Sequencer {
         if (action === 'playOneShot') {
           this.sounds?.playOneShot(sound, { x: nx });
           if (this.createVisual) this.createVisual(sound, nx, ny);
-          log('sound:play', { id: sound, action, state: this.stateName, index: pickedIdx, x: nx, y: ny });
+          log('sound:play', { id: sound, action, state: this.stateName, index: currentIdx, x: nx, y: ny });
         } else if (action === 'startSustained') {
           this.sounds?.startSustained(sound, { x: nx });
           if (this.createVisual) this.createVisual(sound, nx, ny);
-          log('sound:start', { id: sound, action, state: this.stateName, index: pickedIdx, x: nx, y: ny });
+          log('sound:start', { id: sound, action, state: this.stateName, index: currentIdx, x: nx, y: ny });
         } else if (action === 'stopSustained') {
           this.sounds?.stopSustained(sound);
-          log('sound:stop', { id: sound, action, state: this.stateName, index: pickedIdx });
+          log('sound:stop', { id: sound, action, state: this.stateName, index: currentIdx });
         } else if (action === 'toggleSustained') {
           this.sounds?.toggleSustained(sound, { x: nx });
           if (this.createVisual) this.createVisual(sound, nx, ny);
-          log('sound:toggle', { id: sound, action, state: this.stateName, index: pickedIdx, x: nx, y: ny });
+          log('sound:toggle', { id: sound, action, state: this.stateName, index: currentIdx, x: nx, y: ny });
         }
       }
 
@@ -85,7 +79,7 @@ export class Sequencer {
       if (action === 'gotoState' && cue?.to) {
         try {
           this.fsm?.goTo?.(cue.to, 'sequencer');
-          log('state:goto', { to: cue.to, from: this.stateName, index: pickedIdx });
+          log('state:goto', { to: cue.to, from: this.stateName, index: currentIdx });
         } catch (_) {}
       }
 
@@ -105,7 +99,7 @@ export class Sequencer {
         try { this.onCue(cue, { inputType, actionCtx }); } catch (_) {}
       }
       // Advance index only after successful execution
-      this.index = pickedIdx + 1;
+      this.index = this.index + 1;
     } catch (_) {
       // swallow to avoid breaking linear flow on a single cue
     }
