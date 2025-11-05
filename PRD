@@ -40,7 +40,7 @@ PRD: Kitchen Chaos A/V Story (Web)
 - thump.ogg
 - water_pour.ogg
 
-4) Sound triggering model (simplified)
+4) Sound triggering model 
 - Two playback modalities, determined by sequence actions:
   - One-shot: `playOneShot`
   - Looped: `startSustained` / `stopSustained` / `toggleSustained`
@@ -51,7 +51,7 @@ PRD: Kitchen Chaos A/V Story (Web)
 - No meters or time-based transitions. Any conditional logic references simple FSM flags (e.g., `stoveOn`).
 - Accidents and alarms are included as cues within state sequences.
 
-5.1 Per-state sound programming (current build)
+5.1 Per-state sound programming
 - Preparing: `fridge`, `knife_sharpen`, `chopping`, `cutting_things`, `squeeze_juice`, `tap`, `bag_rustling`
 - Cooking: `lighter`, `stove` (looped), `stove_fire`, `hissing_pan` (looped, requires `stoveOn`), `water_pour`, `glass_stirring`, `cooking_spray`, `microwave`, `glass_clink`, `boiling_water` (looped, requires `stoveOn`)
 - Accident Breakout: `clatter`, `pot_falling`, `objects_falling`, `thump`
@@ -73,7 +73,7 @@ PRD: Kitchen Chaos A/V Story (Web)
 - Shared visual API (factory output):
   - create(params) → { id, update(dt), setPosition(x,y), getPosition(), destroy(), object3D }
   - Visuals must source colors exclusively from the global palette.
-- Updated mappings (current build):
+- Audio-visual mappings:
   - fridge → fridgeDrop (randomized orientation on spawn; bounce to rest pool)
   - bag_rustling → bagRustleSides (spawn from top-left/right with inward velocity; random rotation)
   - lighter → blinkOverlay (full-canvas blink on gate; auto fade)

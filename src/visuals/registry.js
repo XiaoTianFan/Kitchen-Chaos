@@ -1,5 +1,3 @@
-import { create as createAccidentBursts } from './factories/accidentBursts.js';
-import { create as createFlashingCircularSpectrogram } from './factories/flashingCircularSpectrogram.js';
 import { create as createTapWaterSpectrogram } from './factories/tapWaterSpectrogram.js';
 import { create as createJuiceDroplets } from './factories/juiceDroplets.js';
 import { create as createFridgeDrop } from './factories/fridgeDrop.js';
@@ -23,9 +21,7 @@ import { create as createThumpRipple } from './factories/thumpRipple.js';
 import { create as createFireAlarmBlinkFrame } from './factories/fireAlarmBlinkFrame.js';
 
 const registry = {
-  accidentBursts: createAccidentBursts,
-  flashingCircularSpectrogram: createFlashingCircularSpectrogram
-  ,tapWaterSpectrogram: createTapWaterSpectrogram
+  tapWaterSpectrogram: createTapWaterSpectrogram
   ,juiceDroplets: createJuiceDroplets
   ,fridgeDrop: createFridgeDrop
   ,knifeStripe: createKnifeStripe
