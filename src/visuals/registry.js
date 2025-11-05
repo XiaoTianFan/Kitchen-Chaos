@@ -18,6 +18,13 @@ import { create as createFridgeDrop } from './factories/fridgeDrop.js';
 import { create as createKnifeStripe } from './factories/knifeStripe.js';
 import { create as createChopStripe } from './factories/chopStripe.js';
 import { create as createCutStripe } from './factories/cutStripe.js';
+import { create as createBagRustleSides } from './factories/bagRustleSides.js';
+import { create as createBlinkOverlay } from './factories/blinkOverlay.js';
+import { create as createRedSpectrogram } from './factories/redSpectrogram.js';
+import { create as createRedFilterOverlay } from './factories/redFilterOverlay.js';
+import { create as createWaterPourStream } from './factories/waterPourStream.js';
+import { create as createGlassArcSpinner } from './factories/glassArcSpinner.js';
+import { create as createWhiteSprayDroplets } from './factories/whiteSprayDroplets.js';
 
 const registry = {
   heatRing: createHeatRing,
@@ -40,6 +47,13 @@ const registry = {
   ,knifeStripe: createKnifeStripe
   ,chopStripe: createChopStripe
   ,cutStripe: createCutStripe
+  ,bagRustleSides: createBagRustleSides
+  ,blinkOverlay: createBlinkOverlay
+  ,redSpectrogram: createRedSpectrogram
+  ,redFilterOverlay: createRedFilterOverlay
+  ,waterPourStream: createWaterPourStream
+  ,glassArcSpinner: createGlassArcSpinner
+  ,whiteSprayDroplets: createWhiteSprayDroplets
 };
 
 export function createFactory(name, params, ctx) {

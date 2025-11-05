@@ -15,6 +15,8 @@ export class Sequencer {
     this.sequence = [];
     this.index = 0;
     this.stateName = '';
+    this._lastAdvanceAt = 0; // ms timestamp of last successful advance
+    this._readyAtMs = 0;     // ms: earliest time we accept advances (state-entry guard)
   }
 
   resetForState(stateName) {
@@ -23,6 +25,9 @@ export class Sequencer {
     const cfg = this.getConfig?.() || {};
     const st = (cfg?.fsm?.states || []).find(s => s?.name === stateName);
     this.sequence = Array.isArray(st?.sequence) ? st.sequence.slice(0) : [];
+    const now = (performance && typeof performance.now === 'function') ? performance.now() : Date.now();
+    // Guard window after state entry to avoid carry-over inputs advancing immediately
+    this._readyAtMs = now + 180; // ~1-2 frames at 60Hz
   }
 
   // inputType: 'click' | 'hold' | 'drag'
@@ -30,6 +35,17 @@ export class Sequencer {
   advance(inputType = 'click', actionCtx = null) {
     if (!this.sequence || this.sequence.length === 0) return; // nothing to do
     if (this.index >= this.sequence.length) return; // reached end, no-op
+
+    // Simple debounce to avoid double-advancing on near-simultaneous inputs (e.g., click + drag)
+    const now = (performance && typeof performance.now === 'function') ? performance.now() : Date.now();
+    if (now < (this._readyAtMs || 0)) {
+      log('seq:state_guard', { state: this.stateName, index: this.index, inputType });
+      return;
+    }
+    if (now - (this._lastAdvanceAt || 0) < 120) {
+      log('seq:debounce', { state: this.stateName, index: this.index, inputType });
+      return;
+    }
 
     // Only consider the immediate next cue; do not skip on mismatched input/conditions
     const currentIdx = this.index;
@@ -113,6 +129,7 @@ export class Sequencer {
       }
       // Advance index only after successful execution
       this.index = this.index + 1;
+      this._lastAdvanceAt = now;
     } catch (_) {
       // swallow to avoid breaking linear flow on a single cue
     }

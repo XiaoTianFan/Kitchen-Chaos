@@ -29,7 +29,11 @@ export function create(params = {}, ctx = {}) {
       const r = 2 + Math.random() * 3;
       const geo = new THREE.CircleGeometry(r, 16);
       const mat = new THREE.MeshBasicMaterial({ color: waterColor, transparent: true, opacity: alpha });
+      // Stabilize transparent rendering
+      mat.depthWrite = false;
+      mat.depthTest = false;
       const m = new THREE.Mesh(geo, mat);
+      m.renderOrder = 100; // ensure water draws above spectrogram
       const yOff = -i * (H / count) * 0.2; // stagger starts so stream appears continuous
       m.position.set(x + (Math.random() - 0.5) * 10, H + 20 + yOff, 0);
       waterGroup.add(m);
@@ -48,35 +52,52 @@ export function create(params = {}, ctx = {}) {
   group.add(spectroGroup);
   const W = ctx.width || 1;
   const H = ctx.height || 1;
-  const bands = Math.max(24, Math.min(96, params.bands || 48));
-  const barWidth = Math.max(2, W / bands);
-  const barMaxHeight = Math.max(12, Math.min(120, (H * 0.22)));
+  const bands = Math.max(48, Math.min(192, params.bands || 128)); // finer resolution
+  const barWidth = Math.max(1, W / bands);
+  const barMaxHeight = Math.max(12, Math.min(220, (H * 0.35))); // taller max height
   const bars = []; // { mesh, height }
 
   for (let i = 0; i < bands; i++) {
-    const geo = new THREE.PlaneGeometry(Math.max(1, barWidth * 0.8), 2);
+    const geo = new THREE.PlaneGeometry(Math.max(1, barWidth * 0.92), 2); // reduce gaps (wider bars)
     const mat = new THREE.MeshBasicMaterial({ color: spectroColor, transparent: true, opacity: alpha });
+    // Stabilize transparent rendering for bars
+    mat.depthWrite = false;
+    mat.depthTest = false;
     const m = new THREE.Mesh(geo, mat);
+    m.renderOrder = 50; // draw before water particles
     const x = i * barWidth + barWidth * 0.5;
     const baseY = 0; // bottom anchored
     m.position.set(x, baseY + 1, 0);
     spectroGroup.add(m);
-    bars.push({ mesh: m, height: 2, target: 2, hue: Math.random() });
+    bars.push({ mesh: m, height: 2 });
   }
 
-  // Use gate:level RMS to modulate heights; fill per-band targets with jitter
+  // Layer groups to avoid coplanar artifacts (water above spectrogram)
+  spectroGroup.position.z = 0.0;
+  waterGroup.position.z = 0.1;
+
+  // Gate-driven modulation state
   let lastRms = 0;
+  let lastLevelAt = 0; // ms timeline from event detail
+  let fading = false;
+  let fadeT = 0;
+  const fadeDur = 1.2;
+  const endSilenceMs = 900;
+
+  // 1-second lerp smoothing of amplitude
+  let ampTarget = 0;
+  let ampFiltered = 0;
+  const ampLerpSeconds = 0.2;
+
   function onTapGateLevel(e) {
     const { soundId, rms } = e.detail || {};
     if (soundId !== 'tap') return;
     lastRms = rms || 0;
-    const amp = Math.min(1, Math.max(0, lastRms * 8));
-    for (let i = 0; i < bars.length; i++) {
-      const jitter = (Math.sin((i * 0.37) + performance.now() * 0.006) * 0.5 + 0.5);
-      const bandEmph = 0.4 + 0.6 * (i / (bars.length - 1)); // bias higher bands slightly
-      const h = 4 + (barMaxHeight * amp * (0.4 + 0.6 * jitter) * bandEmph);
-      bars[i].target = h;
-    }
+    const now = (e.detail && typeof e.detail.t === 'number') ? e.detail.t : (performance.now ? performance.now() : Date.now());
+    lastLevelAt = now;
+    fading = false; // reset any fade if we get fresh energy
+    // Map RMS to amplitude target (clamped)
+    ampTarget = Math.min(1, Math.max(0, lastRms * 8));
   }
 
   gateBus.addEventListener('gate:hit', onTapGateHit);
@@ -90,6 +111,40 @@ export function create(params = {}, ctx = {}) {
     object3D: group,
     update(_audio, dt) {
       const dtSec = Math.max(0.0001, dt || 1 / 60);
+      const nowMs = (performance.now ? performance.now() : Date.now());
+
+      // Lerp amplitude toward target over ~1 second for steadiness
+      const k = Math.min(1, dtSec / Math.max(0.001, ampLerpSeconds));
+      ampFiltered = ampFiltered + (ampTarget - ampFiltered) * k;
+
+      // Determine whether to begin fade after silence
+      if (!fading) {
+        const since = (nowMs - (lastLevelAt || nowMs));
+        if (since >= endSilenceMs) {
+          fading = true;
+          fadeT = 0;
+        }
+      }
+
+      // Update spectrogram bars with smoothing; only filtered amp
+      const rise = 4.0 * dtSec;  // slower rise for steadiness
+      const fall = 3.0 * dtSec;  // slower fall
+      const fadeK = fading ? (1 - Math.min(1, fadeT / fadeDur)) : 1;
+      for (let i = 0; i < bars.length; i++) {
+        const b = bars[i];
+        // slight high-band emphasis
+        const bandEmph = 0.6 + 0.4 * (i / (bars.length - 1));
+        const t = 4 + (barMaxHeight * ampFiltered * bandEmph);
+        const h = b.height;
+        let nh = h;
+        if (t > h) nh = Math.min(t, h + Math.max(1, barMaxHeight * rise));
+        else nh = Math.max(2, h - Math.max(1, barMaxHeight * fall));
+        b.height = nh;
+        b.mesh.scale.y = Math.max(0.01, nh / 2);
+        b.mesh.position.y = (nh / 2);
+        if (b.mesh.material) b.mesh.material.opacity = alpha * fadeK;
+      }
+
       // Update water streams
       for (let i = streams.length - 1; i >= 0; i--) {
         const s = streams[i];
@@ -97,7 +152,7 @@ export function create(params = {}, ctx = {}) {
         const alphaScale = Math.max(0, 1 - s.t / s.lifespan);
         for (const p of s.parts) {
           p.y += -s.speed * dtSec;
-          if (p.m.material) p.m.material.opacity = alpha * (0.3 + 0.7 * alphaScale);
+          if (p.m.material) p.m.material.opacity = alpha * (0.3 + 0.7 * alphaScale) * fadeK;
           if (p.y <= 0) p.y = -9999; // mark to fade
           p.m.position.set(p.x + (Math.random() - 0.5) * 2, p.y, 0);
         }
@@ -107,19 +162,12 @@ export function create(params = {}, ctx = {}) {
         }
       }
 
-      // Update spectrogram bars with smoothing
-      const rise = 12.0 * dtSec;
-      const fall = 8.0 * dtSec;
-      for (let i = 0; i < bars.length; i++) {
-        const b = bars[i];
-        const h = b.height;
-        const t = b.target;
-        let nh = h;
-        if (t > h) nh = Math.min(t, h + Math.max(2, barMaxHeight * rise));
-        else nh = Math.max(2, h - Math.max(2, barMaxHeight * fall));
-        b.height = nh;
-        b.mesh.scale.y = Math.max(0.01, nh / 2);
-        b.mesh.position.y = (nh / 2);
+      // Advance fade timer if fading; destroy when done
+      if (fading) {
+        fadeT += dtSec;
+        if (fadeT >= fadeDur) {
+          try { group.removeFromParent(); } catch (_) {}
+        }
       }
     },
     setPosition(nx, ny) { px = nx; py = ny; },

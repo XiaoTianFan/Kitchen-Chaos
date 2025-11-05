@@ -58,6 +58,8 @@ export function create(params = {}, ctx = {}) {
       const color = new THREE.Color(colors[Math.floor(Math.random() * colors.length)]);
       const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity });
       const mesh = createMeshByType(type, size, mat);
+      // Randomize orientation/rotation at spawn
+      try { mesh.rotation.z = Math.random() * Math.PI * 2; } catch (_) {}
       const x = Math.random() * (ctx.width || 1);
       const y = (ctx.height || 1) + size * 0.6; // just above top
       const z = (Math.random() - 0.5) * 1.0; // parallax depth layer
